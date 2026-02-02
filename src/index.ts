@@ -1,5 +1,5 @@
 import { parseComponent } from 'vue-template-compiler'
-import { VueLangExtractor } from '../src/extractor'
+import { VueLangExtractor } from './extractor'
 import _set from 'lodash-es/set'
 
 const formatValue = (value: string) => {

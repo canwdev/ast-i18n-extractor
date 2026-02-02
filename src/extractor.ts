@@ -1,12 +1,21 @@
 import * as acorn from 'acorn'
-import { ReplacementItem, replaceTemplate } from './replacer'
+import tsPlugin from 'acorn-typescript'
+
+import { type ReplacementItem, replaceTemplate } from './replacer'
 import { checkKeyNeedExtract, valueNeedExtract as valueNeedExtract } from './checker'
 import { parse } from '@vue/compiler-dom'
-import { NodeTypes } from '@vue/compiler-core'
-import { parse as babelParse } from '@babel/parser'
+import { NodeTypes, type BaseElementNode, type ElementNode, type Node, type RootNode } from '@vue/compiler-core'
 import { formatI18nKey } from './utils/format-key'
 
-const formatValue = (str) => {
+
+type WarningItem = {
+  message: string
+  value: string
+  key?: string
+  exps?: string[]
+}
+
+const formatValue = (str: any) => {
   if (typeof str !== 'string') {
     return str
   }
@@ -41,10 +50,10 @@ export class VueLangExtractor {
     if (this.extractedTextValues[value]) {
       return this.extractedTextValues[value]
     }
-    let key = formatI18nKey(value)
+    let key = formatI18nKey(value, '_', 32)
     if (this.extractedKeyValues[key]) {
       console.warn('key duplicate fix!', key, this.extractedKeyValues[key], this.extractedKeyValues)
-      this.extractedKeyValues[key]++
+      this.extractedKeyValues[key]!++
       key = key + '_' + this.extractedKeyValues[key]
     } else {
       // console.log('key set', key)
@@ -57,29 +66,29 @@ export class VueLangExtractor {
     return key
   }
 
-  extractJs(jsCode: string, replaceValueFn) {
-    // TODO: 支持ts
-    // const tsAst = babelParse(jsCode, {
-    //   sourceType: 'module',
-    //   plugins: ['typescript'],
-    // })
-    // const program = tsAst.program
-    // console.log('ts ast', program)
+  extractJs(jsCode: string, replaceValueFn: (value: string) => string) {
 
-    const program = acorn.parse(jsCode, { ecmaVersion: 2020, sourceType: 'module' })
-    // console.log('js ast', program)
+    const program: acorn.Program = acorn.Parser.extend(tsPlugin()).parse(jsCode, {
+      sourceType: 'module',
+      ecmaVersion: 'latest',
+      locations: true
+    })
+    console.log('AST parsed', program)
+    debugger
 
     const replacements: ReplacementItem[] = []
     const textMap: { [key: string]: string } = {}
-    const warnings: any[] = []
+
+
+    const warnings: Array<WarningItem> = []
 
     const _valueNeedExtractWith = (value: string) => {
-      return valueNeedExtract(value, (warn) => {
+      return valueNeedExtract(value, (warn: WarningItem) => {
         warnings.push(warn)
       })
     }
 
-    // 定义获取子节点的函数
+    // 定义获取子节点的函数 acorn.Node
     const getChildNodes = (node) => {
       switch (node.type) {
         case 'Program':
@@ -122,7 +131,6 @@ export class VueLangExtractor {
           return [] // 默认无子节点
       }
     }
-    // 修改后的 walk 函数
     const walk = (node) => {
       // console.log('walk node', node)
       // 检查是否为目标节点：Property 且 value 为 Literal
@@ -207,11 +215,14 @@ export class VueLangExtractor {
 
     for (let i = 0; i < program.body.length; i++) {
       const node = program.body[i]
+      if (!node) {
+        continue
+      }
       // console.log('sub node', node)
       if (node.type === 'ExpressionStatement') {
         walk(node.expression)
       } else if (node.type === 'ExportDefaultDeclaration') {
-        node.declaration.properties.forEach((prop) => {
+        node.declaration.properties.forEach((prop: acorn.Property) => {
           walk(prop)
         })
       }
@@ -238,13 +249,13 @@ export class VueLangExtractor {
     let warnings: any[] = []
 
     const _valueNeedExtractWith = (value: string) => {
-      return valueNeedExtract(value, (warn) => {
+      return valueNeedExtract(value, (warn: WarningItem) => {
         warnings.push(warn)
       })
     }
 
     // 遍历 AST
-    const traverse = (node) => {
+    const traverse = (node: ElementNode) => {
       // console.log('traverse node', node)
       // 节点类型 NodeTypes
       if (node.type === NodeTypes.ELEMENT) {
@@ -296,7 +307,7 @@ export class VueLangExtractor {
                 newTemplate: _newTemplate,
                 warnings: _warnings,
               } = this.extractJs(
-                // 给 value 加括号，避免 acorn 解析错误
+                // 给 value 加括号，避免解析错误
                 `(${source.content})`,
                 (key) => {
                   return `$t('${key}')`
@@ -339,7 +350,7 @@ export class VueLangExtractor {
                       newTemplate: _newTemplate,
                       warnings: _warnings,
                     } = this.extractJs(
-                      // 给 value 加括号，避免 acorn 解析错误
+                      // 给 value 加括号，避免解析错误
                       `(${value})`,
                       (key) => {
                         return `$t('${key}')`

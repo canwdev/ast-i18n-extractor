@@ -1,6 +1,6 @@
 import { parse } from 'acorn'
 
-const vueKeyMap = {
+const vueKeyMap: Record<string, boolean> = {
   id: true,
   key: true,
   class: true,
@@ -28,7 +28,7 @@ export const checkKeyNeedExtract = (key: string) => {
 }
 
 // 如 DemoVue2，SimpleCounter, DemoPage, isLoading，单个大写开头的单词不算，如 Apple，Bandwidth，Highest，Medium
-function isValidCodeName(str) {
+function isValidCodeName(str: string) {
   // 检查是否包含空格
   if (/\s/.test(str)) {
     return false
@@ -42,7 +42,7 @@ function isValidCodeName(str) {
 }
 
 // 检测内容是否需要提取，如人类可读的文本内容，不包括代码内容
-export const valueNeedExtract = (value: string, handleWarning) => {
+export const valueNeedExtract = (value: string, handleWarning?: (warning: { message: string; value: string }) => void) => {
   if (!Number.isNaN(Number(value))) {
     // 忽略数字
     return false

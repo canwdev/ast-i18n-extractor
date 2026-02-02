@@ -1,7 +1,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { extractJs, extractVue } from '../src'
+import { extractJs, extractVue } from '../src/index'
 
 const basePath = __dirname
 
@@ -16,8 +16,11 @@ const test = async (inputFilePath: string, keyPrefix = 'i18n_lang') => {
   let result
   if (ext === '.vue') {
     result = await extractVue(src, keyPrefix)
-  } else if (ext === '.js') {
+  } else if (ext === '.js' || ext === '.ts') {
     result = await extractJs(src, keyPrefix)
+  } else {
+    console.log('unsupported file type', ext)
+    return
   }
 
   const outDir = path.join(basePath, './output')
@@ -25,7 +28,7 @@ const test = async (inputFilePath: string, keyPrefix = 'i18n_lang') => {
     fs.mkdirSync(outDir)
   }
   if (result) {
-    fs.writeFileSync(path.join(outDir, `${name}-out.${ext}`), result.output)
+    fs.writeFileSync(path.join(outDir, `${name}-out${ext}`), result.output)
     fs.writeFileSync(path.join(outDir, `${name}-lang.json`), JSON.stringify(result.extracted, null, 2))
     fs.writeFileSync(path.join(outDir, `${name}-warnings.json`), JSON.stringify(result.warnings, null, 2))
     console.log(`OK, ${result.warnings.length} warnings, file output to ${outDir}`)
@@ -34,7 +37,9 @@ const test = async (inputFilePath: string, keyPrefix = 'i18n_lang') => {
 }
 
 const main = async () => {
-  await test(path.join(basePath, './demo/vue2.vue'))
-  await test(path.join(basePath, './demo/demo.js'))
+  // await test(path.join(basePath, './demo/vue2.vue'))
+  // await test(path.join(basePath, './demo/demo-js.js'))
+  // await test(path.join(basePath, './demo/vue3.vue'))
+  await test(path.join(basePath, './demo/demo-ts.ts'))
 }
 main()
