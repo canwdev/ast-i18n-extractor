@@ -1,20 +1,15 @@
-import type { ElementNode } from '@vue/compiler-core'
+import type { RootNode, SimpleExpressionNode, TemplateChildNode } from '@vue/compiler-core'
 import type { ReplacementItem } from './replacer'
-import { NodeTypes } from '@vue/compiler-core'
+import type { WarningItem } from './types'
 
+import { NodeTypes } from '@vue/compiler-core'
 import { parse } from '@vue/compiler-dom'
 import * as acorn from 'acorn'
 import tsPlugin from 'acorn-typescript'
 import { checkKeyNeedExtract, valueNeedExtract } from './checker'
 import { replaceTemplate } from './replacer'
-import { formatI18nKey } from './utils/format-key'
 
-interface WarningItem {
-  message: string
-  value: string
-  key?: string
-  exps?: string[]
-}
+import { formatI18nKey } from './utils/format-key'
 
 function formatValue(str: unknown): string {
   let s: string = typeof str === 'string' ? str : ''
@@ -249,7 +244,7 @@ export class VueLangExtractor {
     // console.log('template ast', ast)
     const replacements: ReplacementItem[] = []
     let textMap: { [key: string]: string } = {}
-    let warnings: any[] = []
+    let warnings: WarningItem[] = []
 
     const _valueNeedExtractWith = (value: string) => {
       return valueNeedExtract(value, (warn: WarningItem) => {
@@ -258,7 +253,7 @@ export class VueLangExtractor {
     }
 
     // 遍历 AST
-    const traverse = (node: ElementNode) => {
+    const traverse = (node: RootNode | TemplateChildNode | SimpleExpressionNode) => {
       // console.log('traverse node', node)
       // 节点类型 NodeTypes
       if (node.type === NodeTypes.ELEMENT) {
@@ -305,6 +300,10 @@ export class VueLangExtractor {
             ) {
               // console.log('DIRECTIVE v-for prop', prop)
               const { source } = prop.forParseResult
+
+              if (source.type !== NodeTypes.SIMPLE_EXPRESSION) {
+                return
+              }
 
               let {
                 textMap: _textMap,
@@ -442,9 +441,11 @@ export class VueLangExtractor {
         textMap[key] = text.trim()
         replacements.push([node.loc.start.offset, node.loc.end.offset, `{{ $t('${key}') }}`])
       }
-      if (node.children) {
+      if ('children' in node) {
         for (const child of node.children) {
-          traverse(child)
+          if (typeof child === 'object' && child) {
+            traverse(child)
+          }
         }
       }
     }
@@ -455,7 +456,6 @@ export class VueLangExtractor {
     replacements.sort((a, b) => a[0] - b[0]) // 确保按位置顺序
     const newTemplate = replaceTemplate(template, replacements)
 
-    return { textMap, newTemplate, warnings }
     return { textMap, newTemplate, warnings }
   }
 
