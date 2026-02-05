@@ -1,11 +1,10 @@
-
 import fs from 'node:fs'
 import path from 'node:path'
 import { extractJs, extractVue } from '../src/index'
 
 const basePath = __dirname
 
-const test = async (inputFilePath: string, keyPrefix = 'i18n_lang') => {
+async function test(inputFilePath: string, keyPrefix = 'i18n_lang') {
   const src = fs.readFileSync(inputFilePath, 'utf-8')
 
   const name = path.basename(inputFilePath, path.extname(inputFilePath))
@@ -16,9 +15,11 @@ const test = async (inputFilePath: string, keyPrefix = 'i18n_lang') => {
   let result
   if (ext === '.vue') {
     result = await extractVue(src, keyPrefix)
-  } else if (ext === '.js' || ext === '.ts') {
+  }
+  else if (ext === '.js' || ext === '.ts') {
     result = await extractJs(src, keyPrefix)
-  } else {
+  }
+  else {
     console.log('unsupported file type', ext)
     return
   }
@@ -36,7 +37,7 @@ const test = async (inputFilePath: string, keyPrefix = 'i18n_lang') => {
   }
 }
 
-const main = async () => {
+async function main() {
   // await test(path.join(basePath, './demo/vue2.vue'))
   // await test(path.join(basePath, './demo/demo-js.js'))
   // await test(path.join(basePath, './demo/vue3.vue'))

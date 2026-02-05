@@ -12,7 +12,7 @@ export default {
   },
   name: 'DemoVue2',
   label2: 'Welcome to the XXX California',
-  components: {SubComponent2, SubComponent1, TestComponent},
+  components: { SubComponent2, SubComponent1, TestComponent },
   data() {
     return {
       isCN: false,
@@ -31,12 +31,12 @@ export default {
     },
     ndList() {
       return [
-        {label: 'Tiny Dancer in my hand, pirouetting for the man.', class: 'main'},
-        {label: 'Same Text', class: 'sub'},
-        {label: 'Same Text', class: 'sub'},
-        {label: 'Same Text', class: 'sub'},
-        {label: 'Same Text', class: 'sub'},
-        {label: '', class: 'sub'},
+        { label: 'Tiny Dancer in my hand, pirouetting for the man.', class: 'main' },
+        { label: 'Same Text', class: 'sub' },
+        { label: 'Same Text', class: 'sub' },
+        { label: 'Same Text', class: 'sub' },
+        { label: 'Same Text', class: 'sub' },
+        { label: '', class: 'sub' },
       ]
     },
     demoFeats() {
@@ -63,7 +63,7 @@ export default {
   },
   methods: {
     onLangChange(lang = 'Demo text') {
-      alert('Hello world!' + lang)
+      alert(`Hello world!${lang}`)
       const text = 'Plenty of room at the Hotel California'
       const text2 = `You can find ${lang} here !!!`
       console.log(text)
