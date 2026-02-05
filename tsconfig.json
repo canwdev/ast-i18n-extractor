@@ -1,27 +1,23 @@
 {
   // Visit https://aka.ms/tsconfig to read more about this file
   "compilerOptions": {
+    "target": "esnext",
+    "jsx": "react-jsx",
+    // For nodejs:
+    "lib": [
+      "esnext"
+    ],
+    "moduleDetection": "force",
     // File Layout
     "rootDir": "./",
     // "outDir": "./dist",
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
-    "module": "nodenext",
-    "target": "esnext",
-    // For nodejs:
-    "lib": [
-      "esnext"
-    ],
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "types": [
       "node"
     ],
-    // Other Outputs
-    "sourceMap": true,
-    "declaration": true,
-    "declarationMap": true,
-    // Stricter Typechecking Options
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
     // Style Options
     // "noImplicitReturns": true,
     // "noImplicitOverride": true,
@@ -31,12 +27,20 @@
     // "noPropertyAccessFromIndexSignature": true,
     // Recommended Options
     "strict": true,
-    "jsx": "react-jsx",
-    "verbatimModuleSyntax": true,
+    "exactOptionalPropertyTypes": true,
+    "noImplicitAny": true,
+    // Stricter Typechecking Options
+    "noUncheckedIndexedAccess": true,
+    "declaration": true,
+    "declarationMap": true,
+    // Other Outputs
+    "sourceMap": true,
     "isolatedModules": true,
+    "verbatimModuleSyntax": true,
     "noUncheckedSideEffectImports": true,
-    "moduleDetection": "force",
-    "skipLibCheck": true,
-    "moduleResolution": "bundler"
-  }
+    "skipLibCheck": true
+  },
+  "exclude": [
+    "test"
+  ]
 }

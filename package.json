@@ -1,10 +1,14 @@
 {
   "name": "ast-i18n-extractor",
-  "version": "1.0.0",
-  "main": "index.js",
   "type": "module",
+  "version": "1.0.0",
+  "license": "MIT",
+  "main": "index.js",
   "scripts": {
-    "test": "bun --inspect-wait run --watch ./test/test.ts"
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "test": "bun run --watch ./test/test.ts",
+    "test:inspect": "bun --inspect-wait run --watch ./test/test.ts"
   },
   "dependencies": {
     "@vue/compiler-core": "^3.5.27",
@@ -17,11 +21,12 @@
     "typescript": "^5.9.3",
     "vue-template-compiler": "^2.7.16"
   },
-  "license": "MIT",
   "devDependencies": {
+    "@antfu/eslint-config": "^7.2.0",
     "@types/acorn": "^6.0.4",
     "@types/estree": "^1.0.8",
     "@types/lodash-es": "^4.17.12",
-    "@types/node": "^25.2.0"
+    "@types/node": "^25.2.0",
+    "eslint": "^9.39.2"
   }
 }

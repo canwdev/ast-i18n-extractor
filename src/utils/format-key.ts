@@ -1,16 +1,12 @@
-import { pinyin } from "pinyin-pro";
 import { snakeCase } from 'change-case'
+import { pinyin } from 'pinyin-pro'
 
 function containsChinese(text: string) {
-  const pattern = /[\u4e00-\u9fa5]/
+  const pattern = /[\u4E00-\u9FA5]/
   return pattern.test(text)
 }
 
-export const formatI18nKey = (
-  val: number | string,
-  replace: string = '_',
-  limitLength: number = -1,
-): string => {
+export function formatI18nKey(val: number | string, replace: string = '_', limitLength: number = -1): string {
   if (typeof val === 'number') {
     return `n${replace}${val}`
   }
@@ -22,12 +18,13 @@ export const formatI18nKey = (
   if (containsChinese(str)) {
     try {
       str = pinyin(str, { toneType: 'none', nonZh: 'consecutive' })
-    } catch (e) {
+    }
+    catch (e) {
       console.warn(e)
     }
   }
   // 移除非字母和数字字符
-  str = str.replace(/[^a-zA-Z0-9_\s]+/g, '_')
+  str = str.replace(/[^\w\s]+/g, '_')
   // 大驼峰转换 ABCDeFg -> abc_de_fg
   str = snakeCase(str)
   if (limitLength > 0) {

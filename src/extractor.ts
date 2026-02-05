@@ -1,34 +1,33 @@
+import type { ElementNode } from '@vue/compiler-core'
+import type { ReplacementItem } from './replacer'
+import { NodeTypes } from '@vue/compiler-core'
+
+import { parse } from '@vue/compiler-dom'
 import * as acorn from 'acorn'
 import tsPlugin from 'acorn-typescript'
-
-import { type ReplacementItem, replaceTemplate } from './replacer'
-import { checkKeyNeedExtract, valueNeedExtract as valueNeedExtract } from './checker'
-import { parse } from '@vue/compiler-dom'
-import { NodeTypes, type BaseElementNode, type ElementNode, type Node, type RootNode } from '@vue/compiler-core'
+import { checkKeyNeedExtract, valueNeedExtract } from './checker'
+import { replaceTemplate } from './replacer'
 import { formatI18nKey } from './utils/format-key'
 
-
-type WarningItem = {
+interface WarningItem {
   message: string
   value: string
   key?: string
   exps?: string[]
 }
 
-const formatValue = (str: any) => {
-  if (typeof str !== 'string') {
-    return str
-  }
+function formatValue(str: unknown): string {
+  let s: string = typeof str === 'string' ? str : ''
   // 首尾字符必须相同
-  if (str.charAt(0) === str.charAt(str.length - 1)) {
+  if (s.charAt(0) === s.charAt(s.length - 1)) {
     // 移除首尾引号 ` | ' | "
-    str = str.replace(/^['"`]+|['"`]+$/g, '')
+    s = s.replace(/^['"`]+|['"`]+$/g, '')
   }
-  return str
+  return s
 }
 
 // 移除首尾括号
-const removeBrackets = (str: string) => {
+function removeBrackets(str: string) {
   return str.replace(/^\(|\)$/g, '')
 }
 
@@ -54,12 +53,13 @@ export class VueLangExtractor {
     if (this.extractedKeyValues[key]) {
       console.warn('key duplicate fix!', key, this.extractedKeyValues[key], this.extractedKeyValues)
       this.extractedKeyValues[key]!++
-      key = key + '_' + this.extractedKeyValues[key]
-    } else {
+      key = `${key}_${this.extractedKeyValues[key]}`
+    }
+    else {
       // console.log('key set', key)
       this.extractedKeyValues[key] = 1
     }
-    key = this.keyPrefix ? this.keyPrefix + '.' + key : key
+    key = this.keyPrefix ? `${this.keyPrefix}.${key}` : key
 
     // console.log('extractedKeyValues', this.extractedKeyValues)
     this.extractedTextValues[value] = key
@@ -67,18 +67,16 @@ export class VueLangExtractor {
   }
 
   extractJs(jsCode: string, replaceValueFn: (value: string) => string) {
-
     const program: acorn.Program = acorn.Parser.extend(tsPlugin()).parse(jsCode, {
       sourceType: 'module',
       ecmaVersion: 'latest',
-      locations: true
+      locations: true,
     })
     console.log('AST parsed', program)
     debugger
 
     const replacements: ReplacementItem[] = []
     const textMap: { [key: string]: string } = {}
-
 
     const warnings: Array<WarningItem> = []
 
@@ -166,18 +164,21 @@ export class VueLangExtractor {
         const replaceValue = replaceValueFn(key)
         if (isLiteral) {
           replacements.push([node.start, node.end, replaceValue])
-        } else {
+        }
+        else {
           // 移除模板字符串的引号
           replacements.push([node.start - 1, node.end + 1, replaceValue])
         }
-      } else if (node.type === 'TemplateLiteral') {
+      }
+      else if (node.type === 'TemplateLiteral') {
         // console.log('TemplateLiteral node', node)
         if (node.expressions.length > 0) {
           // 提取文字
           const value = node.quasis
             .map((quasi, index) => {
-              if (!quasi.value.raw) return ''
-              return quasi.value.raw + `{${index}}`
+              if (!quasi.value.raw)
+                return ''
+              return `${quasi.value.raw}{${index}}`
             })
             .join('')
           const text = formatValue(value)
@@ -209,7 +210,8 @@ export class VueLangExtractor {
 
       // 递归遍历子节点
       getChildNodes(node).forEach((child) => {
-        if (child) walk(child) // 确保子节点存在
+        if (child)
+          walk(child) // 确保子节点存在
       })
     }
 
@@ -221,7 +223,8 @@ export class VueLangExtractor {
       // console.log('sub node', node)
       if (node.type === 'ExpressionStatement') {
         walk(node.expression)
-      } else if (node.type === 'ExportDefaultDeclaration') {
+      }
+      else if (node.type === 'ExportDefaultDeclaration') {
         node.declaration.properties.forEach((prop: acorn.Property) => {
           walk(prop)
         })
@@ -294,10 +297,11 @@ export class VueLangExtractor {
                 prop.nameLoc.end.offset,
                 `:${prop.nameLoc.source}`,
               ])
-            } else if (
-              prop.type === NodeTypes.DIRECTIVE &&
-              prop.name === 'for' &&
-              prop.forParseResult
+            }
+            else if (
+              prop.type === NodeTypes.DIRECTIVE
+              && prop.name === 'for'
+              && prop.forParseResult
             ) {
               // console.log('DIRECTIVE v-for prop', prop)
               const { source } = prop.forParseResult
@@ -324,9 +328,10 @@ export class VueLangExtractor {
               warnings = [...warnings, ..._warnings]
 
               replacements.push([source.loc.start.offset, source.loc.end.offset, _newTemplate])
-            } else if (
-              prop.type === NodeTypes.DIRECTIVE &&
-              (prop.name === 'bind' || prop.name === 'html')
+            }
+            else if (
+              prop.type === NodeTypes.DIRECTIVE
+              && (prop.name === 'bind' || prop.name === 'html')
             ) {
               // console.log('DIRECTIVE prop', prop)
               // Node.DIRECTIVE 类型且 name 为 "bind"
@@ -342,7 +347,7 @@ export class VueLangExtractor {
                   }
 
                   // 检测是否以 { 或 [ 开头
-                  if (/^\{|\[/gi.test(value)) {
+                  if (/^\{|\[/.test(value)) {
                     // console.warn('检测到对象或数组，需要进一步处理', value)
 
                     let {
@@ -391,10 +396,11 @@ export class VueLangExtractor {
                     `$t('${key}')`,
                   ])
                 }
-              } else if (
-                prop.name === 'html' &&
-                prop.exp &&
-                prop.exp.type === NodeTypes.SIMPLE_EXPRESSION
+              }
+              else if (
+                prop.name === 'html'
+                && prop.exp
+                && prop.exp.type === NodeTypes.SIMPLE_EXPRESSION
               ) {
                 // 处理 v-html 内容
                 const value = prop.exp.content
@@ -414,13 +420,15 @@ export class VueLangExtractor {
             }
           })
         }
-      } else if (node.type === NodeTypes.TEXT || node.type === NodeTypes.INTERPOLATION) {
+      }
+      else if (node.type === NodeTypes.TEXT || node.type === NodeTypes.INTERPOLATION) {
         let value = ''
         if (node.type === NodeTypes.TEXT) {
           // console.log('TEXT node', node)
           // Node.TEXT 类型 (文本节点)
           value = node.content || ''
-        } else if (node.type === NodeTypes.INTERPOLATION) {
+        }
+        else if (node.type === NodeTypes.INTERPOLATION) {
           // console.log('INTERPOLATION node', node)
           // Node.INTERPOLATION 类型 (插值节点)
           value = node.content.loc.source

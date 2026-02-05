@@ -1,18 +1,18 @@
+import { set as _set } from 'lodash-es'
 import { parseComponent } from 'vue-template-compiler'
 import { VueLangExtractor } from './extractor'
-import _set from 'lodash-es/set'
 
-const formatValue = (value: string) => {
+function formatValue(value: string) {
   // 处理HTML字符串中的  \n  为空格
   return value.replace(/ *\n */g, ' ')
 }
 
-export const extractJs = async (src: string, keyPrefix: string) => {
-  let textMap: { [key: string]: string } = {}
+export async function extractJs(src: string, keyPrefix: string) {
+  const textMap: { [key: string]: string } = {}
   const vueLangEx = new VueLangExtractor(keyPrefix)
   const result = vueLangEx.extractScript(src)
   Object.keys(result.textMap).forEach((key) => {
-    _set(textMap, key, formatValue(result.textMap[key]))
+    _set(textMap, key, formatValue(result.textMap[key] ?? ''))
   })
   return {
     output: result.newTemplate,
@@ -21,11 +21,11 @@ export const extractJs = async (src: string, keyPrefix: string) => {
   }
 }
 
-export const extractVue = async (src: string, keyPrefix: string) => {
+export async function extractVue(src: string, keyPrefix: string) {
   const parsed = parseComponent(src)
   console.log('[extractVue] parse vue OK')
   const newVueTmplArr: string[] = []
-  let textMap: { [key: string]: string } = {}
+  const textMap: { [key: string]: string } = {}
 
   const vueLangEx = new VueLangExtractor(keyPrefix)
   const warnings: any[] = []
@@ -35,7 +35,7 @@ export const extractVue = async (src: string, keyPrefix: string) => {
 
     // console.log('extract template result', result)
     Object.keys(result.textMap).forEach((key) => {
-      _set(textMap, key, formatValue(result.textMap[key]))
+      _set(textMap, key, formatValue(result.textMap[key] ?? ''))
     })
 
     newVueTmplArr.push(`<template>${result.newTemplate}</template>`)
@@ -45,13 +45,13 @@ export const extractVue = async (src: string, keyPrefix: string) => {
     }
   }
 
-  let script = parsed.script?.content || parsed.scriptSetup?.content
+  const script = parsed.script?.content
   if (script) {
     const result = vueLangEx.extractScript(script)
     // console.log('extract script result', result)
 
     Object.keys(result.textMap).forEach((key) => {
-      _set(textMap, key, formatValue(result.textMap[key]))
+      _set(textMap, key, formatValue(result.textMap[key] ?? ''))
     })
 
     // console.log(result.textMap)
@@ -62,7 +62,6 @@ export const extractVue = async (src: string, keyPrefix: string) => {
       warnings.push(...result.warnings)
     }
   }
-
 
   if (parsed.styles) {
     parsed.styles.forEach((style) => {
@@ -78,7 +77,6 @@ export const extractVue = async (src: string, keyPrefix: string) => {
   return {
     output,
     extracted,
-    warnings
+    warnings,
   }
-
 }
