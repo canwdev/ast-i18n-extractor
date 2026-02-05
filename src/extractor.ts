@@ -81,8 +81,8 @@ export class VueLangExtractor {
       ecmaVersion: 'latest',
       locations: true,
     })
-    console.log('AST parsed', program)
-    debugger
+    // console.log('AST parsed', program)
+    // debugger
 
     const replacements: ReplacementItem[] = []
     const textMap: { [key: string]: string } = {}
@@ -139,6 +139,44 @@ export class VueLangExtractor {
           return (node.elements as Node[]) || [] // 遍历元素
         case 'Property':
           return [node.key as Node, node.value as Node] // 遍历键和值
+        case 'ExportDefaultDeclaration':
+        case 'ExportNamedDeclaration':
+          return [node.declaration as Node]
+        case 'ClassDeclaration':
+        case 'ClassExpression':
+          return [node.body as Node]
+        case 'ClassBody':
+          return node.body as Node[]
+        case 'MethodDefinition':
+          return [node.key as Node, node.value as Node]
+        case 'NewExpression':
+          return [node.callee as Node, ...(node.arguments as Node[] || [])]
+        case 'SwitchStatement':
+          return [node.discriminant as Node, ...(node.cases as Node[] || [])]
+        case 'SwitchCase':
+          return [node.test as Node, ...(node.consequent as Node[] || [])].filter(Boolean) as Node[]
+        case 'WhileStatement':
+        case 'DoWhileStatement':
+          return [node.test as Node, node.body as Node]
+        case 'TryStatement':
+          return [node.block as Node, node.handler as Node, node.finalizer as Node].filter(Boolean) as Node[]
+        case 'CatchClause':
+          return [node.param as Node, node.body as Node].filter(Boolean) as Node[]
+        case 'ThrowStatement':
+        case 'UnaryExpression':
+        case 'UpdateExpression':
+        case 'AwaitExpression':
+        case 'SpreadElement':
+        case 'YieldExpression':
+          return [node.argument as Node]
+        case 'BinaryExpression':
+        case 'LogicalExpression':
+        case 'AssignmentExpression':
+          return [node.left as Node, node.right as Node]
+        case 'TSEnumDeclaration':
+          return node.members as Node[]
+        case 'TSEnumMember':
+          return node.initializer ? [node.initializer as Node] : []
         // 可根据需要添加其他节点类型，例如：
         case 'VariableDeclaration':
           return node.declarations as Node[]
@@ -240,24 +278,7 @@ export class VueLangExtractor {
       })
     }
 
-    for (let i = 0; i < program.body.length; i++) {
-      const node = program.body[i] as unknown as Node
-      if (!node) {
-        continue
-      }
-      // console.log('sub node', node)
-      if (node.type === 'ExpressionStatement') {
-        walk((node as ExpressionStatement).expression as Node)
-      }
-      else if (node.type === 'ExportDefaultDeclaration') {
-        const declaration = (node as ExportDefaultDeclaration).declaration
-        if (declaration.type === 'ObjectExpression') {
-          (declaration as ObjectExpression).properties.forEach((prop) => {
-            walk(prop as unknown as Node)
-          })
-        }
-      }
-    }
+    walk(program as unknown as Node)
 
     // console.log('jsAst replacements', replacements)
     const newTemplate = replaceTemplate(jsCode, replacements)
@@ -493,10 +514,15 @@ export class VueLangExtractor {
   }
 
   // 提取 script 中的文本内容
-  extractScript(template: string) {
+  /**
+   * 提取 JS/TS 代码中的文本
+   * @param code 代码内容
+   * @param isSetup 是否为 Setup API (Vue 3 / Composition API)，如果是则使用 $t('')，否则使用 this.$t('')
+   */
+  extractScript(code: string, isSetup = false) {
     // console.log(template)
-    return this.extractJs(template, (key) => {
-      return `this.$t('${key}')`
+    return this.extractJs(code, (key) => {
+      return isSetup ? `$t('${key}')` : `this.$t('${key}')`
     })
   }
 }

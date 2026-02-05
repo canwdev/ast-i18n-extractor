@@ -17,7 +17,7 @@ async function test(inputFilePath: string, keyPrefix = 'i18n_lang') {
     result = await extractVue(src, keyPrefix)
   }
   else if (ext === '.js' || ext === '.ts') {
-    result = await extractJs(src, keyPrefix)
+    result = await extractJs(src, keyPrefix, ext === '.ts' ? 'ts' : 'js')
   }
   else {
     console.log('unsupported file type', ext)
