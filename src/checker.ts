@@ -120,7 +120,7 @@ export function valueNeedExtract(value: string, handleWarning?: (warning: Warnin
       // console.warn('解析成功，是代码内容：', value)
       return false
     }
-    catch (error) {
+    catch {
       // 解析失败，为文本内容
     }
   }

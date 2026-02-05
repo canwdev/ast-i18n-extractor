@@ -41,6 +41,7 @@
     "skipLibCheck": true
   },
   "exclude": [
-    "test"
+    "test",
+    "frontend"
   ]
 }
