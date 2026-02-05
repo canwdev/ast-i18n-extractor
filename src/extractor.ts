@@ -1,4 +1,15 @@
 import type { RootNode, SimpleExpressionNode, TemplateChildNode } from '@vue/compiler-core'
+import type {
+  Node as EstreeNode,
+  ExportDefaultDeclaration,
+  Expression,
+  ExpressionStatement,
+  Literal,
+  ObjectExpression,
+  Pattern,
+  Super,
+  TemplateElement,
+} from 'estree'
 import type { ReplacementItem } from './replacer'
 import type { WarningItem } from './types'
 
@@ -10,6 +21,9 @@ import { checkKeyNeedExtract, valueNeedExtract } from './checker'
 import { replaceTemplate } from './replacer'
 
 import { formatI18nKey } from './utils/format-key'
+
+// 扩展 EstreeNode 以包含 start 和 end
+type Node = EstreeNode & { start: number, end: number }
 
 function formatValue(str: unknown): string {
   let s: string = typeof str === 'string' ? str : ''
@@ -82,49 +96,61 @@ export class VueLangExtractor {
     }
 
     // 定义获取子节点的函数 acorn.Node
-    const getChildNodes = (node) => {
+    const getChildNodes = (node: Node): (Node | null | undefined)[] => {
       switch (node.type) {
         case 'Program':
         case 'BlockStatement':
-          return node.body || [] // 遍历 body 数组
+          return (node.body as Node[]) || [] // 遍历 body 数组
         case 'ForStatement':
         case 'ForOfStatement':
         case 'ForInStatement':
+          if (node.body.type === 'BlockStatement') {
+            return (node.body.body as Node[]) || []
+          }
+          return [node.body as Node]
         case 'ArrowFunctionExpression':
-          return node.body?.body || []
+          if (node.body.type === 'BlockStatement') {
+            return (node.body.body as Node[]) || []
+          }
+          return [node.body as Node]
         case 'IfStatement':
-          return node.consequent?.body || []
+          if (node.consequent.type === 'BlockStatement') {
+            return (node.consequent.body as Node[]) || []
+          }
+          return [node.consequent as Node]
         case 'FunctionExpression':
         case 'FunctionDeclaration': // 可选：也支持 FunctionDeclaration
-          return [...(node.params || []), node.body] // 遍历参数和函数体
+          return [...(node.params as Node[] || []), node.body as Node] // 遍历参数和函数体
         case 'ExpressionStatement':
-          return [node.expression] // 遍历表达式
+          return [node.expression as Node] // 遍历表达式
         case 'ReturnStatement':
-          return node.argument ? [node.argument] : [] // 遍历返回参数（如果存在）
+          return node.argument ? [node.argument as Node] : [] // 遍历返回参数（如果存在）
         case 'TemplateLiteral':
-          return node.quasis || [] // 遍历模板字符串
+          return (node.quasis as Node[]) || [] // 遍历模板字符串
         case 'CallExpression':
-          return [node.callee, ...(node.arguments || [])] // 遍历函数调用的参数
+          return [node.callee as Node, ...(node.arguments as Node[] || [])] // 遍历函数调用的参数
         case 'ConditionalExpression':
-          return [node.test, node.consequent, node.alternate] // 遍历条件表达式的各个部分
+          return [node.test as Node, node.consequent as Node, node.alternate as Node] // 遍历条件表达式的各个部分
         case 'MemberExpression':
-          return [node.object, node.property] // 遍历对象和属性
+          return [node.object as Node, node.property as Node] // 遍历对象和属性
         case 'ObjectExpression':
-          return node.properties || [] // 遍历属性
+          return (node.properties as Node[]) || [] // 遍历属性
         case 'ArrayExpression':
-          return node.elements || [] // 遍历元素
+          return (node.elements as Node[]) || [] // 遍历元素
         case 'Property':
-          return [node.key, node.value] // 遍历键和值
+          return [node.key as Node, node.value as Node] // 遍历键和值
         // 可根据需要添加其他节点类型，例如：
         case 'VariableDeclaration':
-          return node.declarations
+          return node.declarations as Node[]
         case 'VariableDeclarator':
-          return [node.id, node.init].filter(Boolean)
+          return [node.id as Node, node.init as Node].filter(Boolean)
         default:
           return [] // 默认无子节点
       }
     }
-    const walk = (node) => {
+    const walk = (node: Node | null | undefined) => {
+      if (!node)
+        return
       // console.log('walk node', node)
       // 检查是否为目标节点：Property 且 value 为 Literal
       // if (node.type === 'Property' && node.value.type === 'Literal') {
@@ -143,10 +169,10 @@ export class VueLangExtractor {
       // }
 
       // 处理 Literal 节点（例如数组中的字符串）
-      const isLiteral = node.type === 'StringLiteral' || node.type === 'Literal'
+      const isLiteral = node.type === 'Literal' || (node.type as string) === 'StringLiteral'
 
       if (isLiteral || node.type === 'TemplateElement') {
-        const value = isLiteral ? node.value : node.value.raw
+        const value = isLiteral ? (node as Literal).value : (node as TemplateElement).value.raw
         // console.log('Literal/TemplateElement node', {value}, node)
 
         const text = formatValue(value)
@@ -167,10 +193,11 @@ export class VueLangExtractor {
       }
       else if (node.type === 'TemplateLiteral') {
         // console.log('TemplateLiteral node', node)
-        if (node.expressions.length > 0) {
+        const templateLiteral = node as unknown as import('estree').TemplateLiteral
+        if (templateLiteral.expressions.length > 0) {
           // 提取文字
-          const value = node.quasis
-            .map((quasi, index) => {
+          const value = templateLiteral.quasis
+            .map((quasi: TemplateElement, index: number) => {
               if (!quasi.value.raw)
                 return ''
               return `${quasi.value.raw}{${index}}`
@@ -180,14 +207,17 @@ export class VueLangExtractor {
           if (!_valueNeedExtractWith(text)) {
             return
           }
-          const exps = node.expressions
-            .map((exp) => {
-              if (exp.type === 'MemberExpression') {
-                return exp.property.name
+          const exps = templateLiteral.expressions
+            .map((exp: Expression | Pattern | Super | null) => {
+              if (exp && exp.type === 'MemberExpression') {
+                if (exp.property.type === 'Identifier') {
+                  return exp.property.name
+                }
+                return null
               }
               return null
             })
-            .filter(Boolean)
+            .filter((item): item is string => !!item)
 
           const key = this.generateUniqueKey(text)
           textMap[key] = text
@@ -204,25 +234,28 @@ export class VueLangExtractor {
       }
 
       // 递归遍历子节点
-      getChildNodes(node).forEach((child) => {
+      getChildNodes(node as Node).forEach((child) => {
         if (child)
           walk(child) // 确保子节点存在
       })
     }
 
     for (let i = 0; i < program.body.length; i++) {
-      const node = program.body[i]
+      const node = program.body[i] as unknown as Node
       if (!node) {
         continue
       }
       // console.log('sub node', node)
       if (node.type === 'ExpressionStatement') {
-        walk(node.expression)
+        walk((node as ExpressionStatement).expression as Node)
       }
       else if (node.type === 'ExportDefaultDeclaration') {
-        node.declaration.properties.forEach((prop: acorn.Property) => {
-          walk(prop)
-        })
+        const declaration = (node as ExportDefaultDeclaration).declaration
+        if (declaration.type === 'ObjectExpression') {
+          (declaration as ObjectExpression).properties.forEach((prop) => {
+            walk(prop as unknown as Node)
+          })
+        }
       }
     }
 
