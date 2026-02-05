@@ -25,7 +25,7 @@ export async function extractJs(src: string, keyPrefix: string, type: 'js' | 'ts
 }
 
 export async function extractVue(src: string, keyPrefix: string) {
-  const parsed = parseComponent(src)
+  const parsed = parseComponent(src) as any
   console.log('[extractVue] parse vue OK')
   const newVueTmplArr: string[] = []
   const textMap: { [key: string]: string } = {}
@@ -33,50 +33,91 @@ export async function extractVue(src: string, keyPrefix: string) {
   const vueLangEx = new VueLangExtractor(keyPrefix)
   const warnings: WarningItem[] = []
 
-  if (parsed.template) {
-    const result = vueLangEx.extractTemplate(parsed.template.content)
+  // Script 处理函数
+  const processScript = (scriptBlock: any, isSetupBlock: boolean) => {
+    const content = scriptBlock.content
+    const lang = scriptBlock.lang
+    const isTs = lang === 'ts' || lang === 'tsx'
+    // 如果是 setup 块，或者用户指定 TS 都是 setup
+    const isSetup = isSetupBlock || isTs
 
-    // console.log('extract template result', result)
+    const result = vueLangEx.extractScript(content, isSetup)
+
     Object.keys(result.textMap).forEach((key) => {
       _set(textMap, key, formatValue(result.textMap[key] ?? ''))
     })
 
-    newVueTmplArr.push(`<template>${result.newTemplate}</template>`)
-
     if (result.warnings.length > 0) {
       warnings.push(...result.warnings)
     }
+
+    const langAttr = lang ? ` lang="${lang}"` : ''
+    const setupAttr = isSetupBlock ? ' setup' : ''
+
+    return `<script${setupAttr}${langAttr}>${result.newTemplate}</script>`
   }
 
-  const script = parsed.script?.content
-  if (script) {
-    // 检查是否为 ts 语言
-    const isTs = parsed.script?.lang === 'ts' || parsed.script?.lang === 'tsx'
-    const result = vueLangEx.extractScript(script, isTs)
-    // console.log('extract script result', result)
+  // 1. 处理 Script (普通)
+  if (parsed.script) {
+    newVueTmplArr.push(processScript(parsed.script, false))
+  }
 
+  // 2. 处理 Script Setup
+  if (parsed.scriptSetup) {
+    newVueTmplArr.push(processScript(parsed.scriptSetup, true))
+  }
+
+  // 3. 处理 Template (注意顺序，通常 template 在 script 之后或之前，这里统一放到 script 后面或者按原顺序？)
+  // 简单的做法是按某种固定顺序，或者看 SFCBlock 的 start/end 排序。
+  // 为了简单，我们遵循一般的 Vue SFC 风格：Script -> Template -> Style
+  // 但是原代码是先 Template 后 Script。
+  // 我们可以先收集所有 block，然后按 start 位置排序。
+
+  const blocks: { start: number, content: string }[] = []
+
+  if (parsed.script) {
+    blocks.push({
+      start: parsed.script.start,
+      content: processScript(parsed.script, false),
+    })
+  }
+
+  if (parsed.scriptSetup) {
+    blocks.push({
+      start: parsed.scriptSetup.start,
+      content: processScript(parsed.scriptSetup, true),
+    })
+  }
+
+  if (parsed.template) {
+    const result = vueLangEx.extractTemplate(parsed.template.content)
     Object.keys(result.textMap).forEach((key) => {
       _set(textMap, key, formatValue(result.textMap[key] ?? ''))
     })
-
-    // console.log(result.textMap)
-    // console.log(result.newTemplate)
-    newVueTmplArr.push(`<script>${result.newTemplate}<\/script>`)
-
     if (result.warnings.length > 0) {
       warnings.push(...result.warnings)
     }
+    blocks.push({
+      start: parsed.template.start,
+      content: `<template>${result.newTemplate}</template>`,
+    })
   }
 
   if (parsed.styles) {
-    parsed.styles.forEach((style) => {
+    parsed.styles.forEach((style: any) => {
       const lang = style.lang ? ` lang="${style.lang}"` : ``
       const scoped = style.scoped ? ` scoped` : ``
-      newVueTmplArr.push(`<style${lang}${scoped}>${style.content}</style>`)
+      blocks.push({
+        start: style.start,
+        content: `<style${lang}${scoped}>${style.content}</style>`,
+      })
     })
   }
 
-  const output = newVueTmplArr.join('\n\n')
+  // 按原文件出现顺序排序
+  blocks.sort((a, b) => a.start - b.start)
+
+  const output = blocks.map(b => b.content).join('\n\n')
   const extracted = textMap
 
   return {
