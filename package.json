@@ -12,10 +12,10 @@
     "test:inspect": "bun --inspect-wait run --watch ./test/test.ts"
   },
   "dependencies": {
+    "@sveltejs/acorn-typescript": "^1.0.8",
     "@vue/compiler-core": "^3.5.27",
     "@vue/compiler-dom": "^3.5.27",
     "acorn": "^8.15.0",
-    "acorn-typescript": "^1.4.13",
     "change-case": "^4.1.2",
     "lodash-es": "^4.17.23",
     "pinyin-pro": "^3.28.0",

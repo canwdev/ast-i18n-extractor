@@ -2,10 +2,10 @@ import type { RootNode, SimpleExpressionNode, TemplateChildNode } from '@vue/com
 import type { ReplacementItem } from './replacer'
 import type { WarningItem } from './types'
 
+import { tsPlugin } from '@sveltejs/acorn-typescript'
 import { NodeTypes } from '@vue/compiler-core'
 import { parse } from '@vue/compiler-dom'
 import * as acorn from 'acorn'
-import tsPlugin from 'acorn-typescript'
 import { checkKeyNeedExtract, valueNeedExtract } from './checker'
 import { replaceTemplate } from './replacer'
 
