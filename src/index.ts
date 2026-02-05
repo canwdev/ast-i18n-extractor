@@ -1,3 +1,4 @@
+import type { WarningItem } from './types'
 import { set as _set } from 'lodash-es'
 import { parseComponent } from 'vue-template-compiler'
 import { VueLangExtractor } from './extractor'
@@ -28,7 +29,7 @@ export async function extractVue(src: string, keyPrefix: string) {
   const textMap: { [key: string]: string } = {}
 
   const vueLangEx = new VueLangExtractor(keyPrefix)
-  const warnings: any[] = []
+  const warnings: WarningItem[] = []
 
   if (parsed.template) {
     const result = vueLangEx.extractTemplate(parsed.template.content)

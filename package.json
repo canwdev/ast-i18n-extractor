@@ -7,7 +7,8 @@
   "scripts": {
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
-    "test": "bun run --watch ./test/test.ts",
+    "type-check": "tsc --noEmit",
+    "test": "bun run ./test/test.ts",
     "test:inspect": "bun --inspect-wait run --watch ./test/test.ts"
   },
   "dependencies": {

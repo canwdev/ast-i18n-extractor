@@ -1,3 +1,4 @@
+import type { WarningItem } from './types'
 import { parse } from 'acorn'
 
 const vueKeyMap: Record<string, boolean> = {
@@ -42,7 +43,7 @@ function isValidCodeName(str: string) {
 }
 
 // 检测内容是否需要提取，如人类可读的文本内容，不包括代码内容
-export function valueNeedExtract(value: string, handleWarning?: (warning: { message: string, value: string }) => void) {
+export function valueNeedExtract(value: string, handleWarning?: (warning: WarningItem) => void) {
   if (!Number.isNaN(Number(value))) {
     // 忽略数字
     return false
