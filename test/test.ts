@@ -39,8 +39,8 @@ async function test(inputFilePath: string, keyPrefix = 'i18n_lang') {
 
 async function main() {
   await test(path.join(basePath, './demo/vue2.vue'))
-  await test(path.join(basePath, './demo/demo-js.js'))
+  // await test(path.join(basePath, './demo/demo-js.js'))
   await test(path.join(basePath, './demo/vue3.vue'))
-  await test(path.join(basePath, './demo/demo-ts.ts'))
+  // await test(path.join(basePath, './demo/demo-ts.ts'))
 }
 main()

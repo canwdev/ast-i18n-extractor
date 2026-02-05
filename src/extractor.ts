@@ -60,7 +60,8 @@ export class VueLangExtractor {
     }
     let key = formatI18nKey(value, '_', 32)
     if (this.extractedKeyValues[key]) {
-      console.warn('key duplicate fix!', key, this.extractedKeyValues[key], this.extractedKeyValues)
+      // console.warn('key duplicate fix!', key, this.extractedKeyValues[key], this.extractedKeyValues)
+      console.warn('key duplicate fix!', key)
       this.extractedKeyValues[key]!++
       key = `${key}_${this.extractedKeyValues[key]}`
     }
