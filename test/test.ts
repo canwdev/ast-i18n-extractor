@@ -1,6 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import { extractJs, extractVue } from '../src/index'
+// import { extractJs, extractVue } from '../src/index'
+import { extractJs, extractVue } from '../dist/index'
 
 const basePath = __dirname
 

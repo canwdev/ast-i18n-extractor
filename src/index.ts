@@ -3,7 +3,9 @@ import type { WarningItem } from './types'
 import { set as _set } from 'lodash-es'
 import { parseComponent } from 'vue-template-compiler'
 
+import { valueNeedExtract } from './checker'
 import { VueLangExtractor } from './extractors/extractor'
+import { formatI18nKey } from './utils/format-key'
 
 function formatValue(value: string) {
   // 处理HTML字符串中的  \n  为空格
@@ -128,3 +130,6 @@ export async function extractVue(src: string, keyPrefix: string) {
     warnings,
   }
 }
+
+// export common functions
+export { formatI18nKey, valueNeedExtract, VueLangExtractor }
