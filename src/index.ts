@@ -8,10 +8,12 @@ function formatValue(value: string) {
   return value.replace(/ *\n */g, ' ')
 }
 
-export async function extractJs(src: string, keyPrefix: string) {
+export async function extractJs(src: string, keyPrefix: string, type: 'js' | 'ts' = 'js') {
   const textMap: { [key: string]: string } = {}
   const vueLangEx = new VueLangExtractor(keyPrefix)
-  const result = vueLangEx.extractScript(src)
+  // 如果是 ts 文件，假设使用 setup 语法，生成的代码不带 this
+  const isSetup = type === 'ts'
+  const result = vueLangEx.extractScript(src, isSetup)
   Object.keys(result.textMap).forEach((key) => {
     _set(textMap, key, formatValue(result.textMap[key] ?? ''))
   })
@@ -48,7 +50,9 @@ export async function extractVue(src: string, keyPrefix: string) {
 
   const script = parsed.script?.content
   if (script) {
-    const result = vueLangEx.extractScript(script)
+    // 检查是否为 ts 语言
+    const isTs = parsed.script?.lang === 'ts' || parsed.script?.lang === 'tsx'
+    const result = vueLangEx.extractScript(script, isTs)
     // console.log('extract script result', result)
 
     Object.keys(result.textMap).forEach((key) => {

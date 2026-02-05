@@ -29,6 +29,11 @@ interface BoxImage {
   labelClass?: string
 }
 
+enum Status {
+  Active = "Active Status",
+  Inactive = "Inactive Status"
+}
+
 const isCN = ref(false)
 const off = ref(10)
 const item = ref<Item>({
