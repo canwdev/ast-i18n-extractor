@@ -3,7 +3,7 @@ import type { WarningItem } from './types'
 import { set as _set } from 'lodash-es'
 import { parseComponent } from 'vue-template-compiler'
 
-import { VueLangExtractor } from './extractor'
+import { VueLangExtractor } from './extractors/extractor'
 
 function formatValue(value: string) {
   // 处理HTML字符串中的  \n  为空格
