@@ -1,6 +1,8 @@
+import type { SFCBlock, SFCDescriptor } from 'vue-template-compiler'
 import type { WarningItem } from './types'
 import { set as _set } from 'lodash-es'
 import { parseComponent } from 'vue-template-compiler'
+
 import { VueLangExtractor } from './extractor'
 
 function formatValue(value: string) {
@@ -25,7 +27,7 @@ export async function extractJs(src: string, keyPrefix: string, type: 'js' | 'ts
 }
 
 export async function extractVue(src: string, keyPrefix: string) {
-  const parsed = parseComponent(src) as any
+  const parsed = parseComponent(src) as SFCDescriptor & { scriptSetup?: SFCBlock }
   console.log('[extractVue] parse vue OK')
   const newVueTmplArr: string[] = []
   const textMap: { [key: string]: string } = {}
@@ -34,7 +36,7 @@ export async function extractVue(src: string, keyPrefix: string) {
   const warnings: WarningItem[] = []
 
   // Script 处理函数
-  const processScript = (scriptBlock: any, isSetupBlock: boolean) => {
+  const processScript = (scriptBlock: SFCBlock, isSetupBlock: boolean) => {
     const content = scriptBlock.content
     const lang = scriptBlock.lang
     const isTs = lang === 'ts' || lang === 'tsx'
@@ -77,14 +79,14 @@ export async function extractVue(src: string, keyPrefix: string) {
 
   if (parsed.script) {
     blocks.push({
-      start: parsed.script.start,
+      start: parsed.script.start!,
       content: processScript(parsed.script, false),
     })
   }
 
   if (parsed.scriptSetup) {
     blocks.push({
-      start: parsed.scriptSetup.start,
+      start: parsed.scriptSetup.start!,
       content: processScript(parsed.scriptSetup, true),
     })
   }
@@ -98,17 +100,17 @@ export async function extractVue(src: string, keyPrefix: string) {
       warnings.push(...result.warnings)
     }
     blocks.push({
-      start: parsed.template.start,
+      start: parsed.template.start!,
       content: `<template>${result.newTemplate}</template>`,
     })
   }
 
   if (parsed.styles) {
-    parsed.styles.forEach((style: any) => {
+    parsed.styles.forEach((style: SFCBlock) => {
       const lang = style.lang ? ` lang="${style.lang}"` : ``
       const scoped = style.scoped ? ` scoped` : ``
       blocks.push({
-        start: style.start,
+        start: style.start!,
         content: `<style${lang}${scoped}>${style.content}</style>`,
       })
     })
