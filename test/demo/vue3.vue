@@ -177,9 +177,9 @@ function checkValidate(): boolean {
       rel="nofollow"
       :data-id="`compare-more-${item.id}`"
       :data-href="item.moreLink"
-      :data-phone="`iPhone`"
-      :data-mac="`iMac`"
-      :data-oses="['macOS', 'Windows', `Linux`, 'Android OS']"
+      :phone="`iPhone`"
+      :mac="`iMac`"
+      :oses="['macOS', 'Windows', `Linux`, 'Android OS']"
       :data-ndi="`PDF`"
       target="_blank"
       class="compare-more"
@@ -190,9 +190,10 @@ function checkValidate(): boolean {
       <div class="dialog-lr-layout _reversed">
         <div
           class="lr-left"
-          data-lyric1="You may say I'm a dreamer, but I'm not the only one."
-          :data-lyric2="'Hello, it\'s me. I was wondering if after all these years you\'d like to meet.'"
-          :data-lyric3="`I'm a Barbie girl, in a Barbie world. Life in plastic, it's fantastic.`"
+          data-test="data- will not be extracted"
+          lyric1="You may say I'm a dreamer, but I'm not the only one."
+          :lyric2="'Hello, it\'s me. I was wondering if after all these years you\'d like to meet.'"
+          :lyric3="`I'm a Barbie girl, in a Barbie world. Life in plastic, it's fantastic.`"
         >
           <div class="lr-title ta-h1">Wake me up when September ends.</div>
           <div class="lr-desc ta-text">
@@ -202,6 +203,7 @@ function checkValidate(): boolean {
             the month of May." - The Temptations, My Girl
           </div>
         </div>
+        <input placeholder="Search Text..." />
         <TestComponent
           :class="{ 'item-text-2-cn': isCN }"
           :title="`I want to break free, I want to break free from your lies.`"

@@ -1,11 +1,8 @@
 import type { RootNode, SimpleExpressionNode, TemplateChildNode } from '@vue/compiler-core'
 import type {
   Node as EstreeNode,
-  ExportDefaultDeclaration,
   Expression,
-  ExpressionStatement,
   Literal,
-  ObjectExpression,
   Pattern,
   Super,
   TemplateElement,
@@ -174,10 +171,6 @@ export class VueLangExtractor {
         case 'LogicalExpression':
         case 'AssignmentExpression':
           return [node.left as Node, node.right as Node]
-        case 'TSEnumDeclaration':
-          return node.members as Node[]
-        case 'TSEnumMember':
-          return node.initializer ? [node.initializer as Node] : []
         // 可根据需要添加其他节点类型，例如：
         case 'VariableDeclaration':
           return node.declarations as Node[]
