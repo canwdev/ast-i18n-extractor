@@ -5,5 +5,5 @@
 3.  **类型规范**: 严禁使用 `any`。必须使用具体类型或 `unknown` 配合收窄。
 4.  **验证流程**: 修改代码后，必须执行并通过以下检查：
     *   `bun run type-check` (无 TS 错误)
-    *   `bun run lint` (无 Lint 错误)
+    *   `bun run lint:fix` (无 Lint 错误)
 5.  **操作系统平台特性**: 执行命令前，根据目标平台（如 Windows、macOS、Linux）调整命令。
