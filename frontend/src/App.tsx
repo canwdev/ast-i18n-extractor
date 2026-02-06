@@ -2,84 +2,30 @@ import Editor from '@monaco-editor/react'
 import { extractJs, extractVue } from 'ast-i18n-extractor'
 import clsx from 'clsx'
 import { AlertTriangle, Code, FileJson, Settings, Split } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useDebounce, useLocalStorage } from 'react-use'
 
 type FileType = 'vue' | 'js' | 'ts'
 
-function App() {
-  const [inputCode, setInputCode] = useState<string>(`// Write your code here
+const TEMPLATES: Record<FileType, string> = {
+  js: `// Write your code here
 const a = '你好世界'
 const b = "Hello World"
-`)
-  const [fileType, setFileType] = useState<FileType>('js')
-  const [keyPrefix, setKeyPrefix] = useState<string>('app')
+`,
+  ts: `// Write your code here
+interface User {
+  name: string;
+  role: 'admin' | 'user';
+}
 
-  const [outputCode, setOutputCode] = useState<string>('')
-  const [extractedMap, setExtractedMap] = useState<string>('{}')
-  const [warnings, setWarnings] = useState<{ message: string, value: string, key?: string }[]>([])
-  const [activeTab, setActiveTab] = useState<'code' | 'json' | 'warnings'>('code')
-  const [isProcessing, setIsProcessing] = useState(false)
+const user: User = {
+  name: '张三',
+  role: 'admin'
+};
 
-  const handleExtract = async () => {
-    setIsProcessing(true)
-    try {
-      let result
-      if (fileType === 'vue') {
-        result = await extractVue(inputCode, keyPrefix)
-      }
-      else {
-        result = await extractJs(inputCode, keyPrefix, fileType)
-      }
-
-      setOutputCode(result.output || '')
-      setExtractedMap(JSON.stringify(result.extracted || {}, null, 2))
-      setWarnings(result.warnings || [])
-    }
-    catch (error) {
-      console.error('Extraction failed:', error)
-      // Optionally show error in UI
-    }
-    finally {
-      setIsProcessing(false)
-    }
-  }
-
-  useEffect(() => {
-    handleExtract()
-  }, [inputCode, fileType, keyPrefix])
-
-  return (
-    <div className="h-screen w-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
-      {/* Header */}
-      <header className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center px-4 bg-white dark:bg-gray-900 shrink-0">
-        <div className="flex items-center gap-2 font-bold text-lg text-indigo-600 dark:text-indigo-400">
-          <Split className="w-6 h-6" />
-          <span>AST I18n Extractor</span>
-        </div>
-        <div className="ml-auto flex items-center gap-4">
-          <a href="https://github.com/your-repo" target="_blank" className="text-sm text-gray-500 hover:text-gray-900 dark:hover:text-gray-300">
-            GitHub
-          </a>
-        </div>
-      </header>
-
-      {/* Toolbar */}
-      <div className="h-14 border-b border-gray-200 dark:border-gray-800 flex items-center px-4 gap-6 bg-gray-50 dark:bg-gray-800/50 shrink-0">
-        <div className="flex items-center gap-2">
-          <Settings className="w-4 h-4 text-gray-500" />
-          <span className="text-sm font-medium">Config:</span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-500">Type:</label>
-          <select
-            value={fileType}
-            onChange={(e) => {
-              setFileType(e.target.value as FileType)
-              // Update default code if needed
-              if (inputCode.startsWith('// Write')) {
-                if (e.target.value === 'vue') {
-                  setInputCode(`<template>
+const title = '用户管理';
+`,
+  vue: `<template>
   <div>{{ '你好' }}</div>
 </template>
 <script>
@@ -90,14 +36,88 @@ export default {
     }
   }
 }
-</script>`)
-                }
-                else {
-                  setInputCode(`// Write your code here
-const a = '你好世界'`)
-                }
-              }
-            }}
+</script>`,
+}
+
+function App() {
+  const [inputCode, setInputCode] = useLocalStorage<string>('ast-i18n-input-code', TEMPLATES.js)
+  const [fileType, setFileType] = useLocalStorage<FileType>('ast-i18n-file-type', 'js')
+  const [keyPrefix, setKeyPrefix] = useLocalStorage<string>('ast-i18n-key-prefix', 'app')
+
+  const [outputCode, setOutputCode] = useState<string>('')
+  const [extractedMap, setExtractedMap] = useState<string>('{}')
+  const [warnings, setWarnings] = useState<{ message: string, value: string, key?: string }[]>([])
+  const [activeTab, setActiveTab] = useState<'code' | 'json' | 'warnings'>('code')
+  const [isProcessing, setIsProcessing] = useState(false)
+
+  const handleExtract = async (code: string, type: FileType, prefix: string) => {
+    if (!code)
+      return
+    setIsProcessing(true)
+    try {
+      let result
+      if (type === 'vue') {
+        result = await extractVue(code, prefix)
+      }
+      else {
+        result = await extractJs(code, prefix, type)
+      }
+
+      setOutputCode(result.output ?? '')
+      setExtractedMap(JSON.stringify(result.extracted ?? {}, null, 2))
+      setWarnings(result.warnings ?? [])
+    }
+    catch (error) {
+      console.error('Extraction failed:', error)
+      // Optionally show error in UI
+    }
+    finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // Debounce input for extraction
+  useDebounce(
+    () => {
+      void handleExtract(inputCode ?? '', fileType ?? 'js', keyPrefix ?? 'app')
+    },
+    800,
+    [inputCode, fileType, keyPrefix],
+  )
+
+  const handleFileTypeChange = (newType: FileType) => {
+    setFileType(newType)
+    // Update default code when switching type
+    setInputCode(TEMPLATES[newType])
+  }
+
+  return (
+    <div className="h-screen w-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
+      {/* Header */}
+      <header className="h-12 border-b border-gray-200 dark:border-gray-800 flex items-center px-4 bg-white dark:bg-gray-900 shrink-0">
+        <div className="flex items-center gap-2 font-bold text-lg text-indigo-600 dark:text-indigo-400">
+          <Split className="w-6 h-6" />
+          <span>AST I18n Extractor</span>
+        </div>
+        <div className="ml-auto flex items-center gap-4">
+          {/* <a href="https://github.com/your-repo" target="_blank" className="text-sm text-gray-500 hover:text-gray-900 dark:hover:text-gray-300">
+            GitHub
+          </a> */}
+        </div>
+      </header>
+
+      {/* Toolbar */}
+      <div className="h-12 border-b border-gray-200 dark:border-gray-800 flex items-center px-4 gap-6 bg-gray-50 dark:bg-gray-800/50 shrink-0">
+        <div className="flex items-center gap-2">
+          <Settings className="w-4 h-4 text-gray-500" />
+          <span className="text-sm font-medium">Config:</span>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-500">Type:</label>
+          <select
+            value={fileType}
+            onChange={e => handleFileTypeChange(e.target.value as FileType)}
             className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
           >
             <option value="js">JavaScript (.js)</option>
@@ -137,10 +157,10 @@ const a = '你好世界'`)
           <div className="flex-1 relative">
             <Editor
               height="100%"
-              language={fileType === 'vue' ? 'html' : 'javascript'}
+              language={fileType === 'vue' ? 'html' : fileType === 'ts' ? 'typescript' : 'javascript'}
               theme="vs-dark"
-              value={inputCode}
-              onChange={val => setInputCode(val || '')}
+              value={inputCode ?? ''}
+              onChange={val => setInputCode(val ?? '')}
               options={{
                 minimap: { enabled: false },
                 fontSize: 14,
@@ -157,7 +177,7 @@ const a = '你好世界'`)
             <button
               onClick={() => setActiveTab('code')}
               className={clsx(
-                'px-3 py-1 text-sm rounded-md flex items-center gap-2 transition-colors',
+                'px-3 py-1 text-xs rounded-md flex items-center gap-2 transition-colors',
                 activeTab === 'code' ? 'bg-white dark:bg-gray-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400',
               )}
             >
@@ -168,7 +188,7 @@ const a = '你好世界'`)
             <button
               onClick={() => setActiveTab('json')}
               className={clsx(
-                'px-3 py-1 text-sm rounded-md flex items-center gap-2 transition-colors',
+                'px-3 py-1 text-xs rounded-md flex items-center gap-2 transition-colors',
                 activeTab === 'json' ? 'bg-white dark:bg-gray-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400',
               )}
             >
@@ -179,7 +199,7 @@ const a = '你好世界'`)
             <button
               onClick={() => setActiveTab('warnings')}
               className={clsx(
-                'px-3 py-1 text-sm rounded-md flex items-center gap-2 transition-colors',
+                'px-3 py-1 text-xs rounded-md flex items-center gap-2 transition-colors',
                 activeTab === 'warnings' ? 'bg-white dark:bg-gray-700 shadow-sm text-orange-600 dark:text-orange-400' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400',
               )}
             >
@@ -194,7 +214,7 @@ const a = '你好世界'`)
             </button>
           </div>
           <div className="flex-1 relative bg-white dark:bg-gray-900">
-            {activeTab === 'code' && (
+            <div className={clsx('h-full w-full', activeTab !== 'code' && 'hidden')}>
               <Editor
                 height="100%"
                 language={fileType === 'vue' ? 'html' : 'javascript'}
@@ -208,8 +228,8 @@ const a = '你好世界'`)
                   wordWrap: 'on',
                 }}
               />
-            )}
-            {activeTab === 'json' && (
+            </div>
+            <div className={clsx('h-full w-full', activeTab !== 'json' && 'hidden')}>
               <Editor
                 height="100%"
                 language="json"
@@ -222,8 +242,8 @@ const a = '你好世界'`)
                   scrollBeyondLastLine: false,
                 }}
               />
-            )}
-            {activeTab === 'warnings' && (
+            </div>
+            <div className={clsx('h-full w-full', activeTab !== 'warnings' && 'hidden')}>
               <div className="p-4 overflow-auto h-full">
                 {warnings.length === 0
                   ? (
@@ -238,7 +258,7 @@ const a = '你好世界'`)
                               Value:
                               <code className="bg-white dark:bg-gray-800 px-1 rounded">{w.value}</code>
                             </div>
-                            {w.key && (
+                            {w.key! && (
                               <div className="text-sm text-gray-600 dark:text-gray-400">
                                 Key:
                                 {w.key}
@@ -249,7 +269,7 @@ const a = '你好世界'`)
                       </ul>
                     )}
               </div>
-            )}
+            </div>
           </div>
         </div>
       </div>
