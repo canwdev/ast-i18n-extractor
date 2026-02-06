@@ -39,10 +39,17 @@ export default {
 </script>`,
 }
 
+const EDITOR_LANGUAGES: Record<FileType, string> = {
+  js: 'javascript',
+  ts: 'typescript',
+  vue: 'html',
+}
+
 function App() {
   const [inputCode, setInputCode] = useLocalStorage<string>('ast-i18n-input-code', TEMPLATES.js)
   const [fileType, setFileType] = useLocalStorage<FileType>('ast-i18n-file-type', 'js')
   const [keyPrefix, setKeyPrefix] = useLocalStorage<string>('ast-i18n-key-prefix', 'app')
+  const [tPrefix, setTPrefix] = useLocalStorage<string>('ast-i18n-t-prefix', '')
 
   const [outputCode, setOutputCode] = useState<string>('')
   const [extractedMap, setExtractedMap] = useState<string>('{}')
@@ -50,17 +57,23 @@ function App() {
   const [activeTab, setActiveTab] = useState<'code' | 'json' | 'warnings'>('code')
   const [isProcessing, setIsProcessing] = useState(false)
 
-  const handleExtract = async (code: string, type: FileType, prefix: string) => {
+  const TABS = [
+    { id: 'code', label: 'Result Code', icon: Code },
+    { id: 'json', label: 'Extracted JSON', icon: FileJson },
+    { id: 'warnings', label: 'Warnings', icon: AlertTriangle },
+  ] as const
+
+  const handleExtract = async (code: string, type: FileType, prefix: string, tPrefix?: string) => {
     if (!code)
       return
     setIsProcessing(true)
     try {
       let result
       if (type === 'vue') {
-        result = await extractVue(code, prefix)
+        result = await extractVue(code, prefix, tPrefix)
       }
       else {
-        result = await extractJs(code, prefix, type)
+        result = await extractJs(code, prefix, type, tPrefix)
       }
 
       setOutputCode(result.output ?? '')
@@ -79,10 +92,10 @@ function App() {
   // Debounce input for extraction
   useDebounce(
     () => {
-      void handleExtract(inputCode ?? '', fileType ?? 'js', keyPrefix ?? 'app')
+      void handleExtract(inputCode ?? '', fileType ?? 'js', keyPrefix ?? 'app', tPrefix ?? '')
     },
     800,
-    [inputCode, fileType, keyPrefix],
+    [inputCode, fileType, keyPrefix, tPrefix],
   )
 
   const handleFileTypeChange = (newType: FileType) => {
@@ -127,12 +140,23 @@ function App() {
         </div>
 
         <div className="flex items-center gap-2">
-          <label className="text-sm text-gray-500">Prefix:</label>
+          <label className="text-sm text-gray-500">Key Prefix:</label>
           <input
             type="text"
             value={keyPrefix}
             onChange={e => setKeyPrefix(e.target.value)}
             className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+          />
+        </div>
+
+        <div className="flex items-center gap-2">
+          <label className="text-sm text-gray-500">$t Prefix:</label>
+          <input
+            type="text"
+            value={tPrefix}
+            onChange={e => setTPrefix(e.target.value)}
+            className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder="keep default"
           />
         </div>
 
@@ -157,7 +181,7 @@ function App() {
           <div className="flex-1 relative">
             <Editor
               height="100%"
-              language={fileType === 'vue' ? 'html' : fileType === 'ts' ? 'typescript' : 'javascript'}
+              language={EDITOR_LANGUAGES[fileType!]}
               theme="vs-dark"
               value={inputCode ?? ''}
               onChange={val => setInputCode(val ?? '')}
@@ -173,51 +197,41 @@ function App() {
 
         {/* Output Panel */}
         <div className="flex-1 flex flex-col min-w-0">
-          <div className="h-10 bg-gray-100 dark:bg-gray-800 flex items-center px-2 border-b border-gray-200 dark:border-gray-700 shrink-0 gap-1">
-            <button
-              onClick={() => setActiveTab('code')}
-              className={clsx(
-                'px-3 py-1 text-xs rounded-md flex items-center gap-2 transition-colors',
-                activeTab === 'code' ? 'bg-white dark:bg-gray-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400',
-              )}
-            >
-              <Code className="w-4 h-4" />
-              {' '}
-              Result Code
-            </button>
-            <button
-              onClick={() => setActiveTab('json')}
-              className={clsx(
-                'px-3 py-1 text-xs rounded-md flex items-center gap-2 transition-colors',
-                activeTab === 'json' ? 'bg-white dark:bg-gray-700 shadow-sm text-indigo-600 dark:text-indigo-400' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400',
-              )}
-            >
-              <FileJson className="w-4 h-4" />
-              {' '}
-              Extracted JSON
-            </button>
-            <button
-              onClick={() => setActiveTab('warnings')}
-              className={clsx(
-                'px-3 py-1 text-xs rounded-md flex items-center gap-2 transition-colors',
-                activeTab === 'warnings' ? 'bg-white dark:bg-gray-700 shadow-sm text-orange-600 dark:text-orange-400' : 'hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400',
-              )}
-            >
-              <AlertTriangle className="w-4 h-4" />
-              {' '}
-              Warnings
-              {warnings.length > 0 && (
-                <span className="bg-orange-100 dark:bg-orange-900 text-orange-600 dark:text-orange-400 text-xs px-1.5 rounded-full">
-                  {warnings.length}
-                </span>
-              )}
-            </button>
+          <div className="h-10 bg-gray-100 dark:bg-gray-800 flex items-center px-2 border-b border-gray-200 dark:border-gray-700 shrink-0">
+            <div className="flex  gap-1">
+              {TABS.map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={clsx(
+                    'px-3 py-1 rounded-md text-xs font-medium  transition-all flex items-center gap-2',
+                    activeTab === tab.id
+                      ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-300 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-300/50 dark:hover:bg-gray-600/50',
+                  )}
+                >
+                  <tab.icon className="w-3.5 h-3.5" />
+                  {tab.label}
+                  {tab.id === 'warnings' && warnings.length > 0 && (
+                    <span className={clsx(
+                      'text-[10px] px-1.5 rounded-full ml-1',
+                      activeTab === tab.id
+                        ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-300'
+                        : 'bg-gray-300 text-gray-600 dark:bg-gray-600 dark:text-gray-300',
+                    )}
+                    >
+                      {warnings.length}
+                    </span>
+                  )}
+                </button>
+              ))}
+            </div>
           </div>
           <div className="flex-1 relative bg-white dark:bg-gray-900">
             <div className={clsx('h-full w-full', activeTab !== 'code' && 'hidden')}>
               <Editor
                 height="100%"
-                language={fileType === 'vue' ? 'html' : 'javascript'}
+                language={EDITOR_LANGUAGES[fileType!]}
                 theme="vs-dark"
                 value={outputCode}
                 options={{
@@ -252,16 +266,16 @@ function App() {
                   : (
                       <ul className="space-y-3">
                         {warnings.map((w, i) => (
-                          <li key={i} className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md">
+                          <li key={i} className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md flex flex-col gap-1">
                             <div className="font-medium text-orange-800 dark:text-orange-300">{w.message}</div>
-                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1 flex gap-2">
                               Value:
                               <code className="bg-white dark:bg-gray-800 px-1 rounded">{w.value}</code>
                             </div>
                             {w.key! && (
-                              <div className="text-sm text-gray-600 dark:text-gray-400">
+                              <div className="text-sm text-gray-600 dark:text-gray-400 flex gap-2">
                                 Key:
-                                {w.key}
+                                <code className="bg-white dark:bg-gray-800 px-1 rounded">{w.key}</code>
                               </div>
                             )}
                           </li>

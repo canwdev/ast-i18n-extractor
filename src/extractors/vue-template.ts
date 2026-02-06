@@ -10,17 +10,19 @@ import { formatValue, removeBrackets } from '../utils/text'
 export function extractTemplateLogic(
   template: string,
   generateUniqueKey: (text: string) => string,
-  extractJs: (code: string, replaceValueFn: (key: string) => string) => {
+  extractJs: (code: string, replaceValueFn: (key: string) => string, tPrefix?: string) => {
     textMap: { [key: string]: string }
     newTemplate: string
     warnings: WarningItem[]
   },
+  tPrefix?: string,
 ) {
   const ast = parse(template)
   // console.log('template ast', ast)
   const replacements: ReplacementItem[] = []
   let textMap: { [key: string]: string } = {}
   let warnings: WarningItem[] = []
+  const prefix = tPrefix || '$t'
 
   const _valueNeedExtractWith = (value: string) => {
     return valueNeedExtract(value, (warn: WarningItem) => {
@@ -60,7 +62,7 @@ export function extractTemplateLogic(
             replacements.push([
               prop.value.loc.start.offset,
               prop.value.loc.end.offset,
-              `"$t('${key}')"`,
+              `"${prefix}('${key}')"`,
             ])
             // label -> :label
             replacements.push([
@@ -89,7 +91,7 @@ export function extractTemplateLogic(
               // 给 value 加括号，避免解析错误
               `(${source.content})`,
               (key) => {
-                return `$t('${key}')`
+                return `${prefix}('${key}')`
               },
             )
 
@@ -133,7 +135,7 @@ export function extractTemplateLogic(
                     // 给 value 加括号，避免解析错误
                     `(${value})`,
                     (key) => {
-                      return `$t('${key}')`
+                      return `${prefix}('${key}')`
                     },
                   )
 
@@ -168,7 +170,7 @@ export function extractTemplateLogic(
                 replacements.push([
                   prop.exp.loc.start.offset,
                   prop.exp.loc.end.offset,
-                  `$t('${key}')`,
+                  `${prefix}('${key}')`,
                 ])
               }
             }
@@ -189,7 +191,7 @@ export function extractTemplateLogic(
               replacements.push([
                 prop.exp.loc.start.offset,
                 prop.exp.loc.end.offset,
-                `$t('${key}')`,
+                `${prefix}('${key}')`,
               ])
             }
           }
@@ -215,7 +217,7 @@ export function extractTemplateLogic(
       }
       const key = generateUniqueKey(text)
       textMap[key] = text.trim()
-      replacements.push([node.loc.start.offset, node.loc.end.offset, `{{ $t('${key}') }}`])
+      replacements.push([node.loc.start.offset, node.loc.end.offset, `{{ ${prefix}('${key}') }}`])
     }
     if ('children' in node) {
       for (const child of node.children) {

@@ -43,11 +43,12 @@ export class VueLangExtractor {
   }
 
   // 提取 template 中的文本内容
-  extractTemplate(template: string) {
+  extractTemplate(template: string, tPrefix?: string) {
     return extractTemplateLogic(
       template,
       this.generateUniqueKey.bind(this),
       this.extractJs.bind(this),
+      tPrefix,
     )
   }
 
@@ -55,12 +56,12 @@ export class VueLangExtractor {
   /**
    * 提取 JS/TS 代码中的文本
    * @param code 代码内容
-   * @param isSetup 是否为 Setup API (Vue 3 / Composition API)，如果是则使用 $t('')，否则使用 this.$t('')
+   * @param prefix 替换的前缀，默认为 this.$t
    */
-  extractScript(code: string, isSetup = false) {
+  extractScript(code: string, prefix = 'this.$t') {
     // console.log(template)
     return this.extractJs(code, (key) => {
-      return isSetup ? `$t('${key}')` : `this.$t('${key}')`
+      return `${prefix}('${key}')`
     })
   }
 }

@@ -12,12 +12,13 @@ function formatValue(value: string) {
   return value.replace(/ *\n */g, ' ')
 }
 
-export async function extractJs(src: string, keyPrefix: string, type: 'js' | 'ts' = 'js') {
+export async function extractJs(src: string, keyPrefix: string, type: 'js' | 'ts' = 'js', tPrefix?: string) {
   const textMap: { [key: string]: string } = {}
   const vueLangEx = new VueLangExtractor(keyPrefix)
   // 如果是 ts 文件，假设使用 setup 语法，生成的代码不带 this
   const isSetup = type === 'ts'
-  const result = vueLangEx.extractScript(src, isSetup)
+  const prefix = tPrefix || (isSetup ? '$t' : 'this.$t')
+  const result = vueLangEx.extractScript(src, prefix)
   Object.keys(result.textMap).forEach((key) => {
     _set(textMap, key, formatValue(result.textMap[key] ?? ''))
   })
@@ -28,7 +29,7 @@ export async function extractJs(src: string, keyPrefix: string, type: 'js' | 'ts
   }
 }
 
-export async function extractVue(src: string, keyPrefix: string) {
+export async function extractVue(src: string, keyPrefix: string, tPrefix: string = '') {
   const parsed = parseComponent(src) as SFCDescriptor & { scriptSetup?: SFCBlock }
   console.log('[extractVue] parse vue OK')
   const newVueTmplArr: string[] = []
@@ -44,8 +45,9 @@ export async function extractVue(src: string, keyPrefix: string) {
     const isTs = lang === 'ts' || lang === 'tsx'
     // 如果是 setup 块，或者用户指定 TS 都是 setup
     const isSetup = isSetupBlock || isTs
+    const prefix = tPrefix || (isSetup ? '$t' : 'this.$t')
 
-    const result = vueLangEx.extractScript(content, isSetup)
+    const result = vueLangEx.extractScript(content, prefix)
 
     Object.keys(result.textMap).forEach((key) => {
       _set(textMap, key, formatValue(result.textMap[key] ?? ''))
@@ -94,7 +96,7 @@ export async function extractVue(src: string, keyPrefix: string) {
   }
 
   if (parsed.template) {
-    const result = vueLangEx.extractTemplate(parsed.template.content)
+    const result = vueLangEx.extractTemplate(parsed.template.content, tPrefix)
     Object.keys(result.textMap).forEach((key) => {
       _set(textMap, key, formatValue(result.textMap[key] ?? ''))
     })
