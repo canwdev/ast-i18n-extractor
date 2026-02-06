@@ -133,5 +133,20 @@ export async function extractVue(src: string, keyPrefix: string, tPrefix: string
   }
 }
 
+export async function extractJsx(src: string, keyPrefix: string, tPrefix?: string) {
+  const textMap: { [key: string]: string } = {}
+  const vueLangEx = new VueLangExtractor(keyPrefix)
+  const prefix = tPrefix || 't'
+  const result = vueLangEx.extractJsxScript(src, prefix)
+  Object.keys(result.textMap).forEach((key) => {
+    _set(textMap, key, formatValue(result.textMap[key] ?? ''))
+  })
+  return {
+    output: result.newTemplate,
+    extracted: textMap,
+    warnings: result.warnings,
+  }
+}
+
 // export common functions
 export { formatI18nKey, valueNeedExtract, VueLangExtractor }

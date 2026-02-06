@@ -1,11 +1,12 @@
+import type { Monaco } from '@monaco-editor/react'
 import Editor from '@monaco-editor/react'
-import { extractJs, extractVue } from 'ast-i18n-extractor'
+import { extractJs, extractJsx, extractVue } from 'ast-i18n-extractor'
 import clsx from 'clsx'
 import { AlertTriangle, Code, FileJson, Settings, Split } from 'lucide-react'
 import { useState } from 'react'
 import { useDebounce, useLocalStorage } from 'react-use'
 
-type FileType = 'vue' | 'js' | 'ts'
+type FileType = 'vue' | 'js' | 'ts' | 'jsx' | 'tsx'
 
 const TEMPLATES: Record<FileType, string> = {
   js: `// Write your code here
@@ -25,6 +26,30 @@ const user: User = {
 
 const title = '用户管理';
 `,
+  jsx: `// Write your JSX here
+function App() {
+  return (
+    <div title="标题">
+      <h1>你好，世界！</h1>
+      <p>{'这是一个段落'}</p>
+    </div>
+  )
+}
+`,
+  tsx: `// Write your TSX here
+interface Props {
+  name: string;
+}
+
+function Welcome({ name }: Props) {
+  return (
+    <div className="welcome" aria-label="欢迎">
+      <h1>欢迎, {name}</h1>
+      <button onClick={() => alert('点击了')}>点击我</button>
+    </div>
+  )
+}
+`,
   vue: `<template>
   <div>{{ '你好' }}</div>
 </template>
@@ -42,6 +67,8 @@ export default {
 const EDITOR_LANGUAGES: Record<FileType, string> = {
   js: 'javascript',
   ts: 'typescript',
+  jsx: 'javascript',
+  tsx: 'typescript',
   vue: 'html',
 }
 
@@ -71,6 +98,9 @@ function App() {
       let result
       if (type === 'vue') {
         result = await extractVue(code, prefix, tPrefix)
+      }
+      else if (type === 'jsx' || type === 'tsx') {
+        result = await extractJsx(code, prefix, tPrefix)
       }
       else {
         result = await extractJs(code, prefix, type, tPrefix)
@@ -104,6 +134,52 @@ function App() {
     setInputCode(TEMPLATES[newType])
   }
 
+  const handleEditorWillMount = (monaco: Monaco) => {
+    monaco.languages.typescript.typescriptDefaults.setCompilerOptions({
+      target: monaco.languages.typescript.ScriptTarget.Latest,
+      allowNonTsExtensions: true,
+      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+      module: monaco.languages.typescript.ModuleKind.CommonJS,
+      noEmit: true,
+      esModuleInterop: true,
+      jsx: monaco.languages.typescript.JsxEmit.React,
+      reactNamespace: 'React',
+      allowJs: true,
+      typeRoots: ['node_modules/@types'],
+    })
+
+    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: false,
+      noSyntaxValidation: false,
+      diagnosticCodesToIgnore: [
+        2874, // This JSX tag requires 'React' to be in scope
+        2686, // 'React' refers to a UMD global
+      ],
+    })
+
+    monaco.languages.typescript.javascriptDefaults.setCompilerOptions({
+      target: monaco.languages.typescript.ScriptTarget.Latest,
+      allowNonTsExtensions: true,
+      moduleResolution: monaco.languages.typescript.ModuleResolutionKind.NodeJs,
+      module: monaco.languages.typescript.ModuleKind.CommonJS,
+      noEmit: true,
+      esModuleInterop: true,
+      jsx: monaco.languages.typescript.JsxEmit.React,
+      reactNamespace: 'React',
+      allowJs: true,
+      typeRoots: ['node_modules/@types'],
+    })
+
+    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: false,
+      noSyntaxValidation: false,
+      diagnosticCodesToIgnore: [
+        2874, // This JSX tag requires 'React' to be in scope
+        2686, // 'React' refers to a UMD global
+      ],
+    })
+  }
+
   return (
     <div className="h-screen w-screen flex flex-col bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 overflow-hidden">
       {/* Header */}
@@ -135,6 +211,8 @@ function App() {
           >
             <option value="js">JavaScript (.js)</option>
             <option value="ts">TypeScript (.ts)</option>
+            <option value="jsx">React (.jsx)</option>
+            <option value="tsx">React TS (.tsx)</option>
             <option value="vue">Vue SFC (.vue)</option>
           </select>
         </div>
@@ -185,6 +263,8 @@ function App() {
               theme="vs-dark"
               value={inputCode ?? ''}
               onChange={val => setInputCode(val ?? '')}
+              path={`file:///index.${fileType}`}
+              beforeMount={handleEditorWillMount}
               options={{
                 minimap: { enabled: false },
                 fontSize: 14,
