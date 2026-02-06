@@ -6,4 +6,4 @@
 4.  **验证流程**: 修改代码后，必须执行并通过以下检查：
     *   `bun run type-check` (无 TS 错误)
     *   `bun run lint:fix` (无 Lint 错误)
-5.  **操作系统平台特性**: 执行命令前，根据目标平台（如 Windows、macOS、Linux）调整命令，例如 Windows 不要使用 `&` 。
+5.  **操作系统平台特性**: 执行命令前，根据目标平台（如 Windows、macOS、Linux）调整命令，例如 Windows 不要使用 `command1 && command2`。

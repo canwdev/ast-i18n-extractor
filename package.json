@@ -29,6 +29,7 @@
     "@vue/compiler-core": "^3.5.27",
     "@vue/compiler-dom": "^3.5.27",
     "acorn": "^8.15.0",
+    "acorn-jsx": "^5.3.2",
     "change-case": "^4.1.2",
     "lodash-es": "^4.17.23",
     "pinyin-pro": "^3.28.0",

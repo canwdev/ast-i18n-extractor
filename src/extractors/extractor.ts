@@ -1,5 +1,6 @@
 import { formatI18nKey } from '../utils/format-key'
 import { extractJsLogic } from './js'
+import { extractJsxLogic } from './jsx'
 import { extractTemplateLogic } from './vue-template'
 
 export class VueLangExtractor {
@@ -42,6 +43,10 @@ export class VueLangExtractor {
     return extractJsLogic(jsCode, replaceValueFn, this.generateUniqueKey.bind(this))
   }
 
+  extractJsx(jsCode: string, replaceValueFn: (value: string) => string) {
+    return extractJsxLogic(jsCode, replaceValueFn, this.generateUniqueKey.bind(this))
+  }
+
   // 提取 template 中的文本内容
   extractTemplate(template: string, tPrefix?: string) {
     return extractTemplateLogic(
@@ -61,6 +66,17 @@ export class VueLangExtractor {
   extractScript(code: string, prefix = 'this.$t') {
     // console.log(template)
     return this.extractJs(code, (key) => {
+      return `${prefix}('${key}')`
+    })
+  }
+
+  /**
+   * 提取 JSX/TSX 代码中的文本
+   * @param code 代码内容
+   * @param prefix 替换的前缀，默认为 t
+   */
+  extractJsxScript(code: string, prefix = 't') {
+    return this.extractJsx(code, (key) => {
       return `${prefix}('${key}')`
     })
   }
