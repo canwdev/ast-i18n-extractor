@@ -1,11 +1,11 @@
-import type { FileType } from './CodeExtractor'
 import Editor from '@monaco-editor/react'
 import { extractJs, extractJsx, extractVue, VueLangExtractor } from 'ast-i18n-extractor'
 import clsx from 'clsx'
 import { merge } from 'lodash-es'
-import { AlertCircle, CheckCircle, FileText, FolderOpen, Save, Scan, XCircle } from 'lucide-react'
+import { AlertCircle, CheckCircle, ChevronDown, ChevronRight, FileText, FolderOpen, Save, Scan, XCircle } from 'lucide-react'
 
 import { useState } from 'react'
+import { EDITOR_LANGUAGES, getFileType, getLanguageFromPath } from '../utils/fileTypeUtils'
 
 interface ScanResult {
   filePath: string
@@ -57,23 +57,6 @@ declare global {
   }
 }
 
-const SUPPORTED_EXTENSIONS = ['.js', '.ts', '.jsx', '.tsx', '.vue']
-
-function getFileType(filePath: string): FileType | null {
-  const ext = filePath.toLowerCase()
-  if (ext.endsWith('.js'))
-    return 'js'
-  if (ext.endsWith('.ts'))
-    return 'ts'
-  if (ext.endsWith('.jsx'))
-    return 'jsx'
-  if (ext.endsWith('.tsx'))
-    return 'tsx'
-  if (ext.endsWith('.vue'))
-    return 'vue'
-  return null
-}
-
 export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
   const [jsonFilePath, setJsonFilePath] = useState<string>('')
   const [jsonFileHandle, setJsonFileHandle] = useState<FileSystemFileHandle | null>(null)
@@ -86,6 +69,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
   const [activeTab, setActiveTab] = useState<'results' | 'json'>('results')
   const [isSaving, setIsSaving] = useState(false)
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
 
   const selectJsonFile = async () => {
     if (!window.showOpenFilePicker) {
@@ -189,8 +173,8 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
       }
       else if (entry.kind === 'file') {
         const fileEntry = entry as FileSystemFileHandle
-        const ext = entry.name.toLowerCase()
-        const isSupported = SUPPORTED_EXTENSIONS.some(e => ext.endsWith(e))
+        // EDITOR_LANGUAGES
+        const isSupported = getFileType(entry.name) !== null
         if (!isSupported)
           return
 
@@ -283,6 +267,17 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
   const successCount = scanResults.filter(r => r.status === 'success').length
   const warningCount = scanResults.filter(r => r.status === 'warning').length
   const errorCount = scanResults.filter(r => r.status === 'error').length
+
+  const toggleExpand = (filePath: string) => {
+    const newExpanded = new Set(expandedItems)
+    if (newExpanded.has(filePath)) {
+      newExpanded.delete(filePath)
+    }
+    else {
+      newExpanded.add(filePath)
+    }
+    setExpandedItems(newExpanded)
+  }
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
@@ -415,7 +410,9 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
         </div>
 
         <div className="flex-1 relative bg-white dark:bg-gray-900 overflow-y-auto">
-          {activeTab === 'results' && (
+          <div
+            className={clsx('h-full', activeTab !== 'results' && 'hidden')}
+          >
             <div className="p-4">
               {scanResults.length === 0
                 ? (
@@ -429,23 +426,33 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
                         <li
                           key={result.filePath}
                           className={clsx(
-                            'p-3 rounded-md border',
+                            'rounded-md border overflow-hidden',
                             result.status === 'success' && 'bg-green-50 dark:bg-green-900/10 border-green-200 dark:border-green-800',
                             result.status === 'warning' && 'bg-orange-50 dark:bg-orange-900/10 border-orange-200 dark:border-orange-800',
                             result.status === 'error' && 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800',
                           )}
                         >
-                          <div className="flex items-center gap-2">
+                          <div
+                            className="p-3 flex items-center gap-2 cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
+                            onClick={() => toggleExpand(result.filePath)}
+                          >
+                            {result.output !== undefined && result.output.length > 0
+                              ? (
+                                  expandedItems.has(result.filePath)
+                                    ? <ChevronDown className="w-4 h-4 text-gray-500" />
+                                    : <ChevronRight className="w-4 h-4 text-gray-500" />
+                                )
+                              : <div className="w-4 h-4" />}
                             {getStatusIcon(result.status)}
-                            <code className="text-sm font-mono">{result.filePath}</code>
-                            <span className="text-xs text-gray-500 ml-auto">
+                            <code className="text-sm font-mono flex-1">{result.filePath}</code>
+                            <span className="text-xs text-gray-500">
                               {Object.keys(result.extracted).length}
                               {' '}
                               keys extracted
                             </span>
                           </div>
                           {result.warnings.length > 0 && (
-                            <div className="mt-2 pl-6 space-y-1">
+                            <div className="px-3 pb-2 pl-10 space-y-1">
                               {result.warnings.map((w, index) => (
                                 <div key={index} className="text-xs text-orange-700 dark:text-orange-400">
                                   ⚠️
@@ -459,10 +466,30 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
                             </div>
                           )}
                           {result.error !== undefined && result.error.length > 0 && (
-                            <div className="mt-2 pl-6 text-xs text-red-700 dark:text-red-400">
+                            <div className="px-3 pb-2 pl-10 text-xs text-red-700 dark:text-red-400">
                               ❌
                               {' '}
                               {result.error}
+                            </div>
+                          )}
+                          {expandedItems.has(result.filePath) && result.output !== undefined && result.output.length > 0 && (
+                            <div className="border-t border-gray-200 dark:border-gray-700">
+                              <div className="h-64">
+                                <Editor
+                                  height="100%"
+                                  language={getLanguageFromPath(result.filePath)}
+                                  theme="vs-dark"
+                                  value={result.output}
+                                  options={{
+                                    readOnly: true,
+                                    minimap: { enabled: false },
+                                    fontSize: 12,
+                                    scrollBeyondLastLine: false,
+                                    folding: true,
+                                    lineNumbersMinChars: 3,
+                                  }}
+                                />
+                              </div>
                             </div>
                           )}
                         </li>
@@ -470,24 +497,24 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
                     </ul>
                   )}
             </div>
-          )}
+          </div>
 
-          {activeTab === 'json' && (
-            <div className="h-full">
-              <Editor
-                height="100%"
-                language="json"
-                theme="vs-dark"
-                value={extractedJson}
-                options={{
-                  readOnly: true,
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  scrollBeyondLastLine: false,
-                }}
-              />
-            </div>
-          )}
+          <div
+            className={clsx('h-full', activeTab !== 'json' && 'hidden')}
+          >
+            <Editor
+              height="100%"
+              language="json"
+              theme="vs-dark"
+              value={extractedJson}
+              options={{
+                readOnly: true,
+                minimap: { enabled: false },
+                fontSize: 14,
+                scrollBeyondLastLine: false,
+              }}
+            />
+          </div>
         </div>
       </div>
 
