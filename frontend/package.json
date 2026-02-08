@@ -17,6 +17,7 @@
     "@vue/compiler-core": "^3.5.27",
     "@vue/compiler-dom": "^3.5.27",
     "clsx": "^2.1.1",
+    "lodash-es": "^4.17.23",
     "lucide-react": "^0.563.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

@@ -2,7 +2,8 @@ import type { FileType } from './CodeExtractor'
 import Editor from '@monaco-editor/react'
 import { extractJs, extractJsx, extractVue } from 'ast-i18n-extractor'
 import clsx from 'clsx'
-import { AlertCircle, CheckCircle, FileText, FolderOpen, Scan, XCircle } from 'lucide-react'
+import { merge } from 'lodash-es'
+import { AlertCircle, CheckCircle, FileText, FolderOpen, Save, Scan, XCircle } from 'lucide-react'
 
 import { useState } from 'react'
 
@@ -12,6 +13,7 @@ interface ScanResult {
   warnings: { message: string, value: string, key?: string }[]
   error?: string
   extracted: Record<string, string>
+  output?: string
 }
 
 export interface ScannerProps {
@@ -27,11 +29,14 @@ interface FileSystemHandle {
 interface FileSystemFileHandle extends FileSystemHandle {
   kind: 'file'
   getFile: () => Promise<File>
+  createWritable: () => Promise<FileSystemWritableFileStream>
 }
 
 interface FileSystemDirectoryHandle extends FileSystemHandle {
   kind: 'directory'
   values: () => AsyncIterable<FileSystemHandle>
+  getDirectoryHandle: (name: string) => Promise<FileSystemDirectoryHandle>
+  getFileHandle: (name: string) => Promise<FileSystemFileHandle>
 }
 
 declare global {
@@ -39,8 +44,16 @@ declare global {
     showSaveFilePicker?: (options: {
       suggestedName?: string
       types?: { description: string, accept: Record<string, string[]> }[]
-    }) => Promise<FileSystemFileHandle[]>
+    }) => Promise<FileSystemFileHandle>
     showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>
+    showOpenFilePicker?: (options: {
+      types?: { description: string, accept: Record<string, string[]> }[]
+      multiple?: boolean
+    }) => Promise<FileSystemFileHandle[]>
+  }
+  interface FileSystemWritableFileStream {
+    write: (data: string | BufferSource | Blob) => Promise<void>
+    close: () => Promise<void>
   }
 }
 
@@ -63,34 +76,106 @@ function getFileType(filePath: string): FileType | null {
 
 export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
   const [jsonFilePath, setJsonFilePath] = useState<string>('')
+  const [jsonFileHandle, setJsonFileHandle] = useState<FileSystemFileHandle | null>(null)
+  const [existingJson, setExistingJson] = useState<Record<string, string>>({})
   const [folderPath, setFolderPath] = useState<string>('')
+  const [dirHandle, setDirHandle] = useState<FileSystemDirectoryHandle | null>(null)
   const [scanResults, setScanResults] = useState<ScanResult[]>([])
   const [isScanning, setIsScanning] = useState(false)
   const [extractedJson, setExtractedJson] = useState<string>('{}')
   const [activeTab, setActiveTab] = useState<'results' | 'json'>('results')
+  const [isSaving, setIsSaving] = useState(false)
+  const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
 
-  const selectJsonFile = () => {
-    if (!window.showSaveFilePicker) {
+  const selectJsonFile = async () => {
+    if (!window.showOpenFilePicker) {
       return
     }
-    window.showSaveFilePicker({
-      suggestedName: 'translations.json',
-      types: [{
-        description: 'JSON File',
-        accept: { 'application/json': ['.json'] },
-      }],
-    }).then(([fileHandle]) => {
+    try {
+      const [fileHandle] = await window.showOpenFilePicker({
+        types: [{
+          description: 'JSON File',
+          accept: { 'application/json': ['.json'] },
+        }],
+        multiple: false,
+      })
       setJsonFilePath(fileHandle.name)
-    }).catch((err: Error) => {
-      if (err.name !== 'AbortError') {
-        console.error('Failed to select JSON file:', err)
+      setJsonFileHandle(fileHandle)
+      const file = await fileHandle.getFile()
+      const content = await file.text()
+      try {
+        const parsed = JSON.parse(content) as Record<string, string>
+        setExistingJson(parsed)
       }
-    })
+      catch {
+        setExistingJson({})
+      }
+    }
+    catch (err: unknown) {
+      if (err instanceof Error && err.name !== 'AbortError') {
+        console.error('Failed to open JSON file:', err)
+      }
+    }
+  }
+
+  const saveAllChanges = async () => {
+    if (!dirHandle || scanResults.length === 0) {
+      return
+    }
+    setIsSaving(true)
+    try {
+      for (const result of scanResults) {
+        if (result.status === 'error') {
+          continue
+        }
+        if (result.output === undefined) {
+          continue
+        }
+        try {
+          const parts = result.filePath.split('/')
+          let currentDir: FileSystemDirectoryHandle = dirHandle
+          for (let i = 0; i < parts.length - 1; i++) {
+            currentDir = await currentDir.getDirectoryHandle(parts[i])
+          }
+          const fileName = parts[parts.length - 1]
+          const fileHandle = await currentDir.getFileHandle(fileName)
+          const writable = await fileHandle.createWritable()
+          await writable.write(result.output)
+          await writable.close()
+        }
+        catch (err: unknown) {
+          console.error(`Failed to save ${result.filePath}:`, err)
+        }
+      }
+      if (jsonFileHandle) {
+        try {
+          const currentExtracted = JSON.parse(extractedJson) as Record<string, string>
+          const merged = merge({}, existingJson, currentExtracted)
+          const writable = await jsonFileHandle.createWritable()
+          await writable.write(JSON.stringify(merged, null, 2))
+          await writable.close()
+          setExistingJson(merged)
+        }
+        catch (err: unknown) {
+          console.error('Failed to save JSON file:', err)
+        }
+      }
+      setToast({ message: 'All changes saved successfully!', type: 'success' })
+      setTimeout(() => setToast(null), 3000)
+    }
+    catch {
+      setToast({ message: 'Failed to save changes', type: 'error' })
+      setTimeout(() => setToast(null), 3000)
+    }
+    finally {
+      setIsSaving(false)
+    }
   }
 
   const scanDirectory = async (dirHandle: FileSystemDirectoryHandle) => {
     setIsScanning(true)
     setScanResults([])
+    setDirHandle(dirHandle)
     const results: ScanResult[] = []
     const allExtracted: Record<string, string> = {}
 
@@ -136,6 +221,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
             status: result.warnings?.length ? 'warning' : 'success',
             warnings: result.warnings ?? [],
             extracted,
+            output: result.output,
           })
         }
         catch (err: unknown) {
@@ -166,7 +252,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
     window.showDirectoryPicker()
       .then(async (dirHandle) => {
         setFolderPath(dirHandle.name)
-        return scanDirectory(dirHandle)
+        await scanDirectory(dirHandle)
       })
       .catch((err: Error) => {
         if (err.name !== 'AbortError') {
@@ -214,7 +300,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
           </button>
 
           <button
-            onClick={selectJsonFile}
+            onClick={() => { void selectJsonFile() }}
             className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md text-sm font-medium transition-colors"
           >
             <FileText className="w-4 h-4" />
@@ -227,8 +313,17 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
                   </>
                 )
               : (
-                  'Select Output JSON File'
+                  'Open JSON File'
                 )}
+          </button>
+
+          <button
+            onClick={() => { void saveAllChanges() }}
+            disabled={isScanning || isSaving || scanResults.length === 0}
+            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Save className="w-4 h-4" />
+            {isSaving ? 'Saving...' : 'Save All Changes'}
           </button>
 
           {isScanning && (
@@ -263,7 +358,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
         )}
       </div>
 
-      <div className="flex-1 flex flex-col min-w-0">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <div className="h-10 bg-gray-100 dark:bg-gray-800 flex items-center px-2 border-b border-gray-200 dark:border-gray-700 shrink-0">
           <div className="flex gap-1">
             <button
@@ -302,7 +397,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
           </div>
         </div>
 
-        <div className="flex-1 relative bg-white dark:bg-gray-900 overflow-auto">
+        <div className="flex-1 relative bg-white dark:bg-gray-900 overflow-y-auto">
           {activeTab === 'results' && (
             <div className="p-4">
               {scanResults.length === 0
@@ -334,8 +429,8 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
                           </div>
                           {result.warnings.length > 0 && (
                             <div className="mt-2 pl-6 space-y-1">
-                              {result.warnings.map(w => (
-                                <div key={w.message} className="text-xs text-orange-700 dark:text-orange-400">
+                              {result.warnings.map((w, index) => (
+                                <div key={index} className="text-xs text-orange-700 dark:text-orange-400">
                                   ⚠️
                                   {' '}
                                   {w.message}
@@ -346,7 +441,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
                               ))}
                             </div>
                           )}
-                          {result.error && result.error.length > 0 && (
+                          {result.error !== undefined && result.error.length > 0 && (
                             <div className="mt-2 pl-6 text-xs text-red-700 dark:text-red-400">
                               ❌
                               {' '}
@@ -378,6 +473,16 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
           )}
         </div>
       </div>
+
+      {toast && (
+        <div className={clsx(
+          'fixed bottom-4 right-4 px-4 py-3 rounded-md shadow-lg text-white text-sm font-medium transition-all duration-300 transform',
+          toast.type === 'success' ? 'bg-green-500' : 'bg-red-500',
+        )}
+        >
+          {toast.message}
+        </div>
+      )}
     </div>
   )
 }
