@@ -1,4 +1,5 @@
 import type { Monaco } from '@monaco-editor/react'
+import type { FileType } from '../utils/fileTypeUtils'
 import Editor from '@monaco-editor/react'
 import { extractJs, extractJsx, extractVue } from 'ast-i18n-extractor'
 import clsx from 'clsx'
@@ -6,7 +7,7 @@ import { AlertTriangle, Code, FileJson } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useDebounce, useLocalStorage } from 'react-use'
 
-export type FileType = 'vue' | 'js' | 'ts' | 'jsx' | 'tsx'
+export type { FileType } from '../utils/fileTypeUtils'
 
 const TEMPLATES: Record<FileType, string> = {
   js: `// Write your code here

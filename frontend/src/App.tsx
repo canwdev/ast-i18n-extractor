@@ -58,7 +58,7 @@ function App() {
             type="text"
             value={keyPrefix}
             onChange={e => setKeyPrefix(e.target.value)}
-            className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm w-32 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
         </div>
 
