@@ -1,6 +1,6 @@
 import type { FileType } from './CodeExtractor'
 import Editor from '@monaco-editor/react'
-import { extractJs, extractJsx, extractVue } from 'ast-i18n-extractor'
+import { extractJs, extractJsx, extractVue, VueLangExtractor } from 'ast-i18n-extractor'
 import clsx from 'clsx'
 import { merge } from 'lodash-es'
 import { AlertCircle, CheckCircle, FileText, FolderOpen, Save, Scan, XCircle } from 'lucide-react'
@@ -179,6 +179,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
     const results: ScanResult[] = []
     const allExtracted: Record<string, string> = {}
 
+    const vueLangEx = new VueLangExtractor(keyPrefix)
     const processEntry = async (entry: FileSystemHandle, path: string = '') => {
       if (entry.kind === 'directory') {
         const dirEntry = entry as FileSystemDirectoryHandle
@@ -204,17 +205,18 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
 
           let result
           if (fileType === 'vue') {
-            result = await extractVue(content, keyPrefix, tPrefix)
+            result = await extractVue(content, keyPrefix, tPrefix, vueLangEx)
           }
           else if (fileType === 'jsx' || fileType === 'tsx') {
-            result = await extractJsx(content, keyPrefix, tPrefix)
+            result = await extractJsx(content, keyPrefix, tPrefix, vueLangEx)
           }
           else {
-            result = await extractJs(content, keyPrefix, fileType, tPrefix)
+            result = await extractJs(content, keyPrefix, fileType, tPrefix, vueLangEx)
           }
 
           const extracted = result.extracted ?? {}
-          Object.assign(allExtracted, extracted)
+          // 用lodash合并对象，避免覆盖
+          merge(allExtracted, extracted)
 
           results.push({
             filePath,
@@ -261,6 +263,12 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
       })
   }
 
+  const rescanFolder = async () => {
+    if (!dirHandle)
+      return
+    await scanDirectory(dirHandle)
+  }
+
   const getStatusIcon = (status: ScanResult['status']) => {
     switch (status) {
       case 'success':
@@ -278,7 +286,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="p-4 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
+      <div className="p-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
         <div className="flex items-center gap-4">
           <button
             onClick={selectFolder}
@@ -315,6 +323,15 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
               : (
                   'Open JSON File'
                 )}
+          </button>
+
+          <button
+            onClick={() => { void rescanFolder() }}
+            disabled={!dirHandle || isScanning}
+            className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Scan className="w-4 h-4" />
+            Rescan Folder
           </button>
 
           <button

@@ -12,12 +12,11 @@ function formatValue(value: string) {
   return value.replace(/ *\n */g, ' ')
 }
 
-export async function extractJs(src: string, keyPrefix: string, type: 'js' | 'ts' = 'js', tPrefix?: string) {
+export async function extractJs(src: string, keyPrefix: string, type: 'js' | 'ts' = 'js', tPrefix?: string, vueLangEx?: VueLangExtractor) {
   const textMap: { [key: string]: string } = {}
-  const vueLangEx = new VueLangExtractor(keyPrefix)
+  vueLangEx = vueLangEx || new VueLangExtractor(keyPrefix)
   // 如果是 ts 文件，假设使用 setup 语法，生成的代码不带 this
-  const isSetup = type === 'ts'
-  const prefix = tPrefix || (isSetup ? '$t' : 'this.$t')
+  const prefix = tPrefix || (type === 'ts' ? '$t' : 'this.$t')
   const result = vueLangEx.extractScript(src, prefix)
   Object.keys(result.textMap).forEach((key) => {
     _set(textMap, key, formatValue(result.textMap[key] ?? ''))
@@ -29,13 +28,13 @@ export async function extractJs(src: string, keyPrefix: string, type: 'js' | 'ts
   }
 }
 
-export async function extractVue(src: string, keyPrefix: string, tPrefix: string = '') {
+export async function extractVue(src: string, keyPrefix: string, tPrefix: string = '', vueLangEx?: VueLangExtractor) {
   const parsed = parseComponent(src) as SFCDescriptor & { scriptSetup?: SFCBlock }
   console.log('[extractVue] parse vue OK')
   const newVueTmplArr: string[] = []
   const textMap: { [key: string]: string } = {}
 
-  const vueLangEx = new VueLangExtractor(keyPrefix)
+  vueLangEx = vueLangEx || new VueLangExtractor(keyPrefix)
   const warnings: WarningItem[] = []
 
   // Script 处理函数
@@ -133,9 +132,9 @@ export async function extractVue(src: string, keyPrefix: string, tPrefix: string
   }
 }
 
-export async function extractJsx(src: string, keyPrefix: string, tPrefix?: string) {
+export async function extractJsx(src: string, keyPrefix: string, tPrefix?: string, vueLangEx?: VueLangExtractor) {
   const textMap: { [key: string]: string } = {}
-  const vueLangEx = new VueLangExtractor(keyPrefix)
+  vueLangEx = vueLangEx || new VueLangExtractor(keyPrefix)
   const prefix = tPrefix || 't'
   const result = vueLangEx.extractJsxScript(src, prefix)
   Object.keys(result.textMap).forEach((key) => {

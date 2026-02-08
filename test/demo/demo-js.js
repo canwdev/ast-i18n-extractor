@@ -4,7 +4,7 @@ export default {
       offText: `Sale! ${this.off} OFF! ${this.isCN} ENDS TODAY! ${this.item}`,
       title: `Head Text is Here! | ${this.$t('title')}`,
       description: this.isEN
-        ? `Is this the real life? Is this just fantasy?`
+        ? `Is this the real life? Is this just fantasy? (JS)`
         : this.$t('page.desc'),
       ogDesc: 'Such a lovely place (Such a lovely place)',
       ogImage: `Such AAA lovely place (Such a lovely place)`,
