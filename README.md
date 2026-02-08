@@ -42,6 +42,26 @@ bun run dev
 - 配置 Key Prefix 和 $t Prefix
 - 分屏展示：替换后代码 / 提取的 JSON / 警告信息
 
+## GitHub Pages 自动部署
+
+项目配置了 GitHub Actions 自动部署流程，推送到 `master` 分支时会自动构建并部署到 GitHub Pages。
+
+**启用步骤：**
+
+1. 进入仓库的 **Settings** → **Pages**
+2. 在 **Source** 中选择 **GitHub Actions**
+3. 保存设置后，推送到 `master` 分支即可自动部署
+
+**手动触发部署：**
+
+进入仓库的 **Actions** → **Deploy to GitHub Pages** → **Run workflow**
+
+**访问地址：**
+
+```
+https://<username>.github.io/ast-i18n-extractor/
+```
+
 ## 快速开始 (API)
 
 ```typescript
