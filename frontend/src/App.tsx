@@ -6,7 +6,7 @@ import { useLocalStorage } from 'react-use'
 import { CodeExtractor, Scanner } from './components'
 
 function App() {
-  const [activeView, setActiveView] = useState<'extractor' | 'scanner'>('extractor')
+  const [activeView, setActiveView] = useLocalStorage<'extractor' | 'scanner'>('ast-i18n-active-view', 'extractor')
   const [keyPrefix, setKeyPrefix] = useLocalStorage<string>('ast-i18n-key-prefix', 'app')
   const [tPrefix, setTPrefix] = useLocalStorage<string>('ast-i18n-t-prefix', '')
 
