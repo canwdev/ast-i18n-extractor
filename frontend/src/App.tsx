@@ -1,6 +1,5 @@
 import clsx from 'clsx'
 import { Code, Scan, Settings, Split } from 'lucide-react'
-import { useState } from 'react'
 
 import { useLocalStorage } from 'react-use'
 import { CodeExtractor, Scanner } from './components'

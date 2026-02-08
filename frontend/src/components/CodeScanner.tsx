@@ -5,7 +5,7 @@ import { merge } from 'lodash-es'
 import { AlertCircle, CheckCircle, ChevronDown, ChevronRight, FileText, FolderOpen, Save, Scan, XCircle } from 'lucide-react'
 
 import { useState } from 'react'
-import { EDITOR_LANGUAGES, getFileType, getLanguageFromPath } from '../utils/fileTypeUtils'
+import { getFileType, getLanguageFromPath } from '../utils/fileTypeUtils'
 
 interface ScanResult {
   filePath: string
@@ -52,7 +52,7 @@ declare global {
     }) => Promise<FileSystemFileHandle[]>
   }
   interface FileSystemWritableFileStream {
-    write: (data: string | BufferSource | Blob) => Promise<void>
+    write: (data: FileSystemWriteChunkType) => Promise<void>
     close: () => Promise<void>
   }
 }
