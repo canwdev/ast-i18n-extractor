@@ -28,8 +28,14 @@ export function checkKeyNeedExtract(key: string) {
   return true
 }
 
-// 如 DemoVue2，SimpleCounter, DemoPage, isLoading，单个大写开头的单词不算，如 Apple，Bandwidth，Highest，Medium
+// 是代码：!isMobile, isCN, DemoVue2，SimpleCounter, DemoPage, isLoading
+// 不算代码： Apple，Bandwidth，Highest，Medium
 function isValidCodeName(str: string) {
+  // !@#$%^&*()开头，一定是代码
+  if (/^[!@#$%^&*()]+/.test(str)) {
+    return true
+  }
+
   // 检查是否包含空格
   if (/\s/.test(str)) {
     return false
