@@ -1,7 +1,7 @@
 import { parse } from 'acorn'
 
 /** 是否包含典型 JS 运算符/语法（排除纯单词如 Bandwidth） */
-const CODE_OPERATOR_PATTERN = /[+\-*/%|&<>!]=?|&&|\|\||\?|\(|\)|\[|\]|=>/
+const CODE_OPERATOR_PATTERN = /[+\-*/%|&<>!]=?|&&|\|\||[?()[\]]|=>/
 
 /** 是否像 JS 表达式（如 mOffset + 1、isSelected(w, true)） */
 export function looksLikeCodeExpression(value: string): boolean {
@@ -20,9 +20,9 @@ export function looksLikeCodeExpression(value: string): boolean {
 /** 是否像 SVG path 的 d 属性值 */
 export function isSvgPathData(value: string): boolean {
   const v = value.trim()
-  if (!/^[Mm]/.test(v))
+  if (!/^M/i.test(v))
     return false
-  return /^[MmLlHhVvCcSsQqTtAaZz0-9\s,.+-]+$/.test(v)
+  return /^[MLHVCSQTAZ0-9\s,.+-]+$/i.test(v)
 }
 
 /** 是否像路径/路由，如 /aaa/bbb/ccc/0/{0} */

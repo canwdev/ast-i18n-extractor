@@ -54,11 +54,11 @@ declare global {
   interface Window {
     showSaveFilePicker?: (options: {
       suggestedName?: string
-      types?: { description: string, accept: Record<string, string[]> }[]
+      types?: readonly { description: string, accept: Readonly<Record<string, readonly string[]>> }[]
     }) => Promise<FileSystemFileHandle>
     showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>
     showOpenFilePicker?: (options: {
-      types?: { description: string, accept: Record<string, string[]> }[]
+      types?: readonly { description: string, accept: Readonly<Record<string, readonly string[]>> }[]
       multiple?: boolean
     }) => Promise<FileSystemFileHandle[]>
   }

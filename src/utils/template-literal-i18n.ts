@@ -56,7 +56,7 @@ export function processTemplateLiteralWithExpressions(
   }
 
   const expressionSources = getExpressionSources(source, templateLiteral.expressions)
-  if (expressionSources.some(s => s === '')) {
+  if (expressionSources.includes('')) {
     return false
   }
 

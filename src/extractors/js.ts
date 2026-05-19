@@ -5,12 +5,13 @@ import type {
 } from 'estree'
 import type { ReplacementItem } from '../replacer'
 import type { WarningItem } from '../types'
+import type { ReplaceValueFn } from '../utils/template-literal-i18n'
 import { tsPlugin } from '@sveltejs/acorn-typescript'
 import * as acorn from 'acorn'
 import { valueNeedExtract } from '../checker'
 import { replaceTemplate } from '../replacer'
 import { isConsoleCall } from '../utils/console-call'
-import { processTemplateLiteralWithExpressions, type ReplaceValueFn } from '../utils/template-literal-i18n'
+import { processTemplateLiteralWithExpressions } from '../utils/template-literal-i18n'
 import { formatValue } from '../utils/text'
 
 // 扩展 EstreeNode 以包含 start 和 end
