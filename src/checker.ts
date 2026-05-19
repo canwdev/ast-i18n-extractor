@@ -1,5 +1,6 @@
 import type { WarningItem } from './types'
 import { parse } from 'acorn'
+import { isPathLikeString, isSvgPathData, looksLikeCodeExpression } from './utils/code-detect'
 
 const vueKeyMap: Record<string, boolean> = {
   id: true,
@@ -15,6 +16,10 @@ const vueKeyMap: Record<string, boolean> = {
   ratio: true,
   src: true,
   visible: true,
+  d: true,
+  viewBox: true,
+  points: true,
+  transform: true,
 }
 export function checkKeyNeedExtract(key: string) {
   // console.log('key', key)
@@ -59,6 +64,26 @@ export function valueNeedExtract(value: string, handleWarning?: (warning: Warnin
 
   // 检查长度是否至少为2
   if (value.length < 2) {
+    return false
+  }
+
+  // 方括号包裹的属性/插槽名，如 [modelValue]、[inputValue]、[marks]
+  if (/^\[[\w.$]+\]$/.test(value)) {
+    return false
+  }
+
+  // SVG path 数据，如 M2899,0 L2899,5786 ...
+  if (isSvgPathData(value)) {
+    return false
+  }
+
+  // 路径/路由，如 /camera/album/SD/0/{0}
+  if (isPathLikeString(value)) {
+    return false
+  }
+
+  // JS 表达式，如 mOffset + 1、isSelected(w, true)
+  if (looksLikeCodeExpression(value)) {
     return false
   }
 

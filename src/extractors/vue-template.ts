@@ -5,12 +5,13 @@ import { NodeTypes } from '@vue/compiler-core'
 import { parse } from '@vue/compiler-dom'
 import { checkKeyNeedExtract, valueNeedExtract } from '../checker'
 import { replaceTemplate } from '../replacer'
+import { shouldProcessBindingAsJs } from '../utils/code-detect'
 import { formatValue, removeBrackets } from '../utils/text'
 
 export function extractTemplateLogic(
   template: string,
   generateUniqueKey: (text: string) => string,
-  extractJs: (code: string, replaceValueFn: (key: string) => string, tPrefix?: string) => {
+  extractJs: (code: string, replaceValueFn: (key: string, expressionSources?: string[]) => string, tPrefix?: string) => {
     textMap: { [key: string]: string }
     newTemplate: string
     warnings: WarningItem[]
@@ -28,6 +29,40 @@ export function extractTemplateLogic(
     return valueNeedExtract(value, (warn: WarningItem) => {
       warnings.push(warn)
     })
+  }
+
+  const processBindingExpression = (
+    value: string,
+    loc: { start: { offset: number }, end: { offset: number } },
+  ) => {
+    if (shouldProcessBindingAsJs(value)) {
+      let {
+        textMap: _textMap,
+        newTemplate: _newTemplate,
+        warnings: _warnings,
+      } = extractJs(
+        `(${value})`,
+        (key, expressionSources) => {
+          if (expressionSources?.length) {
+            return `${prefix}('${key}', [${expressionSources.join(', ')}])`
+          }
+          return `${prefix}('${key}')`
+        },
+      )
+      _newTemplate = removeBrackets(_newTemplate)
+      textMap = { ...textMap, ..._textMap }
+      warnings = [...warnings, ..._warnings]
+      replacements.push([loc.start.offset, loc.end.offset, _newTemplate])
+      return
+    }
+
+    const text = formatValue(value)
+    if (!_valueNeedExtractWith(text)) {
+      return
+    }
+    const key = generateUniqueKey(text)
+    textMap[key] = text
+    replacements.push([loc.start.offset, loc.end.offset, `${prefix}('${key}')`])
   }
 
   // 遍历 AST
@@ -90,7 +125,10 @@ export function extractTemplateLogic(
             } = extractJs(
               // 给 value 加括号，避免解析错误
               `(${source.content})`,
-              (key) => {
+              (key, expressionSources) => {
+                if (expressionSources?.length) {
+                  return `${prefix}('${key}', [${expressionSources.join(', ')}])`
+                }
                 return `${prefix}('${key}')`
               },
             )
@@ -108,92 +146,17 @@ export function extractTemplateLogic(
           }
           else if (
             prop.type === NodeTypes.DIRECTIVE
-            && (prop.name === 'bind' || prop.name === 'html')
+            && (prop.name === 'bind' || prop.name === 'on' || prop.name === 'html')
+            && prop.exp
+            && prop.exp.type === NodeTypes.SIMPLE_EXPRESSION
           ) {
-            // console.log('DIRECTIVE prop', prop)
-            // Node.DIRECTIVE 类型且 name 为 "bind"
-            if (prop.arg && prop.arg.type === NodeTypes.SIMPLE_EXPRESSION) {
-              // Node.SIMPLE_EXPRESSION 类型 (静态参数)
+            if (prop.name === 'bind' && prop.arg?.type === NodeTypes.SIMPLE_EXPRESSION) {
               const propKey = prop.arg.content
-              if (prop.exp && prop.exp.type === NodeTypes.SIMPLE_EXPRESSION) {
-                // Node.SIMPLE_EXPRESSION 类型 (静态值)
-                const value = prop.exp.content
-
-                if (!checkKeyNeedExtract(propKey)) {
-                  return
-                }
-
-                // 检测是否以 { 或 [ 开头
-                if (/^\{|\[/.test(value)) {
-                  // console.warn('检测到对象或数组，需要进一步处理', value)
-
-                  let {
-                    textMap: _textMap,
-                    newTemplate: _newTemplate,
-                    warnings: _warnings,
-                  } = extractJs(
-                    // 给 value 加括号，避免解析错误
-                    `(${value})`,
-                    (key) => {
-                      return `${prefix}('${key}')`
-                    },
-                  )
-
-                  // 移除首尾括号
-                  _newTemplate = removeBrackets(_newTemplate)
-
-                  textMap = {
-                    ...textMap,
-                    ..._textMap,
-                  }
-                  warnings = [...warnings, ..._warnings]
-
-                  replacements.push([
-                    prop.exp.loc.start.offset,
-                    prop.exp.loc.end.offset,
-                    _newTemplate,
-                  ])
-
-                  return
-                }
-                // console.log('prop KV', {propKey, value}, prop)
-
-                const text = formatValue(value)
-
-                if (!_valueNeedExtractWith(text)) {
-                  return
-                }
-
-                const key = generateUniqueKey(text)
-                textMap[key] = text
-
-                replacements.push([
-                  prop.exp.loc.start.offset,
-                  prop.exp.loc.end.offset,
-                  `${prefix}('${key}')`,
-                ])
-              }
-            }
-            else if (
-              prop.name === 'html'
-              && prop.exp
-              && prop.exp.type === NodeTypes.SIMPLE_EXPRESSION
-            ) {
-              // 处理 v-html 内容
-              const value = prop.exp.content
-              const text = formatValue(value)
-              if (!_valueNeedExtractWith(text)) {
+              if (!checkKeyNeedExtract(propKey)) {
                 return
               }
-
-              const key = generateUniqueKey(text)
-              textMap[key] = text
-              replacements.push([
-                prop.exp.loc.start.offset,
-                prop.exp.loc.end.offset,
-                `${prefix}('${key}')`,
-              ])
             }
+            processBindingExpression(prop.exp.content, prop.exp.loc)
           }
         })
       }

@@ -1,7 +1,12 @@
+import { readFileSync } from 'node:fs'
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
+
+const rootDir = path.resolve(fileURLToPath(import.meta.url), '..', '..')
+const appVersion = (JSON.parse(readFileSync(path.join(rootDir, 'package.json'), 'utf-8')) as { version: string }).version
 
 // https://vite.dev/config/
 export default defineConfig({
@@ -9,6 +14,15 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    {
+      name: 'html-title-version',
+      transformIndexHtml(html) {
+        return html.replace(
+          /<title>.*?<\/title>/,
+          `<title>AST I18n Extractor v${appVersion}</title>`,
+        )
+      },
+    },
   ],
   resolve: {
     alias: {
@@ -24,5 +38,6 @@ export default defineConfig({
   define: {
     // Some libraries might check process.env
     'process.env': {},
+    '__APP_VERSION__': JSON.stringify(appVersion),
   },
 })

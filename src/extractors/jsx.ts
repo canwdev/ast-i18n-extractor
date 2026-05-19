@@ -1,8 +1,5 @@
 import type {
-  Expression,
   Literal,
-  Pattern,
-  Super,
   TemplateElement,
 } from 'estree'
 import type { ReplacementItem } from '../replacer'
@@ -12,6 +9,8 @@ import * as acorn from 'acorn'
 import jsx from 'acorn-jsx'
 import { valueNeedExtract } from '../checker'
 import { replaceTemplate } from '../replacer'
+import { isConsoleCall } from '../utils/console-call'
+import { processTemplateLiteralWithExpressions, type ReplaceValueFn } from '../utils/template-literal-i18n'
 import { formatValue } from '../utils/text'
 
 // 扩展 EstreeNode 以包含 start 和 end 以及 JSX 类型
@@ -25,7 +24,7 @@ interface Node {
 
 export function extractJsxLogic(
   jsCode: string,
-  replaceValueFn: (key: string) => string,
+  replaceValueFn: ReplaceValueFn,
   generateUniqueKey: (text: string) => string,
 ) {
   const program: acorn.Program = acorn.Parser.extend(tsPlugin(), jsx()).parse(jsCode, {
@@ -78,6 +77,8 @@ export function extractJsxLogic(
       case 'TemplateLiteral':
         return (node.quasis as Node[]) || []
       case 'CallExpression':
+        if (isConsoleCall(node))
+          return []
         return [node.callee as Node, ...(node.arguments as Node[] || [])]
       case 'ConditionalExpression':
         return [node.test as Node, node.consequent as Node, node.alternate as Node]
@@ -220,41 +221,30 @@ export function extractJsxLogic(
       }
     }
     else if (node.type === 'TemplateLiteral') {
-      const templateLiteral = node as unknown as import('estree').TemplateLiteral
+      const templateLiteral = node as unknown as import('estree').TemplateLiteral & { start: number, end: number }
       if (templateLiteral.expressions.length > 0) {
-        // 提取文字
-        const value = templateLiteral.quasis
-          .map((quasi: TemplateElement, index: number) => {
-            if (!quasi.value.raw)
-              return ''
-            return `${quasi.value.raw}{${index}}`
-          })
-          .join('')
-        const text = formatValue(value)
-        if (!_valueNeedExtractWith(text)) {
-          return
-        }
-        const exps = templateLiteral.expressions
-          .map((exp: Expression | Pattern | Super | null) => {
-            if (exp && exp.type === 'MemberExpression') {
-              if (exp.property.type === 'Identifier') {
-                return exp.property.name
-              }
-              return null
-            }
-            return null
-          })
-          .filter((item): item is string => !!item)
-
-        const key = generateUniqueKey(text)
-        textMap[key] = text
-        const message = '请手动处理模板字符串（包含插值）'
-        warnings.push({
-          message,
-          value,
-          key,
-          exps,
+        const processed = processTemplateLiteralWithExpressions(templateLiteral, jsCode, {
+          formatValue,
+          valueNeedExtract: _valueNeedExtractWith,
+          generateUniqueKey,
+          replaceValueFn,
+          textMap,
+          replacements,
         })
+        if (!processed) {
+          const value = templateLiteral.quasis
+            .map((quasi: TemplateElement, index: number) => {
+              const raw = quasi.value.raw ?? ''
+              if (index >= templateLiteral.quasis.length - 1)
+                return raw
+              return `${raw}{${index}}`
+            })
+            .join('')
+          warnings.push({
+            message: '请手动处理模板字符串（包含插值）',
+            value,
+          })
+        }
         return
       }
     }

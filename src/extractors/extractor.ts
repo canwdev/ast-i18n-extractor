@@ -39,11 +39,11 @@ export class VueLangExtractor {
     return key
   }
 
-  extractJs(jsCode: string, replaceValueFn: (value: string) => string) {
+  extractJs(jsCode: string, replaceValueFn: (key: string, expressionSources?: string[]) => string) {
     return extractJsLogic(jsCode, replaceValueFn, this.generateUniqueKey.bind(this))
   }
 
-  extractJsx(jsCode: string, replaceValueFn: (value: string) => string) {
+  extractJsx(jsCode: string, replaceValueFn: (key: string, expressionSources?: string[]) => string) {
     return extractJsxLogic(jsCode, replaceValueFn, this.generateUniqueKey.bind(this))
   }
 
@@ -65,7 +65,10 @@ export class VueLangExtractor {
    */
   extractScript(code: string, prefix = 'this.$t') {
     // console.log(template)
-    return this.extractJs(code, (key) => {
+    return this.extractJs(code, (key, expressionSources) => {
+      if (expressionSources?.length) {
+        return `${prefix}('${key}', [${expressionSources.join(', ')}])`
+      }
       return `${prefix}('${key}')`
     })
   }
@@ -76,7 +79,10 @@ export class VueLangExtractor {
    * @param prefix 替换的前缀，默认为 t
    */
   extractJsxScript(code: string, prefix = 't') {
-    return this.extractJsx(code, (key) => {
+    return this.extractJsx(code, (key, expressionSources) => {
+      if (expressionSources?.length) {
+        return `${prefix}('${key}', [${expressionSources.join(', ')}])`
+      }
       return `${prefix}('${key}')`
     })
   }

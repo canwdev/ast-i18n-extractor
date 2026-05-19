@@ -1,11 +1,17 @@
 import clsx from 'clsx'
 import { Code, Scan, Settings, Split } from 'lucide-react'
+import { useEffect } from 'react'
 
 import { useLocalStorage } from 'react-use'
 import { CodeExtractor, Scanner } from './components'
 
+const APP_TITLE = `AST I18n Extractor v${__APP_VERSION__}`
+
 function App() {
-  const [activeView, setActiveView] = useLocalStorage<'extractor' | 'scanner'>('ast-i18n-active-view', 'extractor')
+  useEffect(() => {
+    document.title = APP_TITLE
+  }, [])
+  const [activeView, setActiveView] = useLocalStorage<'extractor' | 'scanner'>('ast-i18n-active-view', 'scanner')
   const [keyPrefix, setKeyPrefix] = useLocalStorage<string>('ast-i18n-key-prefix', 'app')
   const [tPrefix, setTPrefix] = useLocalStorage<string>('ast-i18n-t-prefix', '')
 
@@ -20,6 +26,7 @@ function App() {
         <div className="flex items-center gap-2 font-bold text-lg text-indigo-600 dark:text-indigo-400">
           <Split className="w-6 h-6" />
           <span>AST I18n Extractor</span>
+          <span className="text-sm font-normal text-gray-500 dark:text-gray-400">{`v${__APP_VERSION__}`}</span>
         </div>
         <div className="ml-8 flex gap-1">
           {VIEWS.map(view => (
