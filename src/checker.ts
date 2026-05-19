@@ -1,6 +1,6 @@
 import type { WarningItem } from './types'
 import { parse } from 'acorn'
-import { isPathLikeString, isSvgPathData, looksLikeCodeExpression } from './utils/code-detect'
+import { isDateTimeFormatPattern, isPathLikeString, isSvgPathData, looksLikeCodeExpression } from './utils/code-detect'
 
 const vueKeyMap: Record<string, boolean> = {
   id: true,
@@ -79,6 +79,11 @@ export function valueNeedExtract(value: string, handleWarning?: (warning: Warnin
 
   // 路径/路由，如 /camera/album/SD/0/{0}
   if (isPathLikeString(value)) {
+    return false
+  }
+
+  // 日期/时间格式占位，如 YYYY-MM-DD HH:mm:ss
+  if (isDateTimeFormatPattern(value)) {
     return false
   }
 

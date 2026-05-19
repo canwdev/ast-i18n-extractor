@@ -11,7 +11,7 @@ import * as acorn from 'acorn'
 import { valueNeedExtract } from '../checker'
 import { replaceTemplate } from '../replacer'
 import { getIfStatementChildNodes } from '../utils/ast-nodes'
-import { isConsoleCall } from '../utils/console-call'
+import { DEFAULT_LOG_OBJECTS, isConsoleCall } from '../utils/console-call'
 import { processTemplateLiteralWithExpressions } from '../utils/template-literal-i18n'
 import { formatValue } from '../utils/text'
 
@@ -22,6 +22,7 @@ export function extractJsLogic(
   jsCode: string,
   replaceValueFn: ReplaceValueFn,
   generateUniqueKey: (text: string) => string,
+  logObjects: readonly string[] = DEFAULT_LOG_OBJECTS,
 ) {
   const program: acorn.Program = acorn.Parser.extend(tsPlugin()).parse(jsCode, {
     sourceType: 'module',
@@ -70,7 +71,7 @@ export function extractJsLogic(
       case 'TemplateLiteral':
         return (node.quasis as Node[]) || [] // 遍历模板字符串
       case 'CallExpression':
-        if (isConsoleCall(node))
+        if (isConsoleCall(node, logObjects))
           return []
         return [node.callee as Node, ...(node.arguments as Node[] || [])] // 遍历函数调用的参数
       case 'ConditionalExpression':

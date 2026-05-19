@@ -39,20 +39,33 @@ export class VueLangExtractor {
     return key
   }
 
-  extractJs(jsCode: string, replaceValueFn: (key: string, expressionSources?: string[]) => string) {
-    return extractJsLogic(jsCode, replaceValueFn, this.generateUniqueKey.bind(this))
+  extractJs(
+    jsCode: string,
+    replaceValueFn: (key: string, expressionSources?: string[]) => string,
+    logObjects?: readonly string[],
+  ) {
+    return extractJsLogic(jsCode, replaceValueFn, this.generateUniqueKey.bind(this), logObjects)
   }
 
-  extractJsx(jsCode: string, replaceValueFn: (key: string, expressionSources?: string[]) => string) {
-    return extractJsxLogic(jsCode, replaceValueFn, this.generateUniqueKey.bind(this))
+  extractJsx(
+    jsCode: string,
+    replaceValueFn: (key: string, expressionSources?: string[]) => string,
+    logObjects?: readonly string[],
+  ) {
+    return extractJsxLogic(jsCode, replaceValueFn, this.generateUniqueKey.bind(this), logObjects)
   }
 
   // 提取 template 中的文本内容
-  extractTemplate(template: string, tPrefix?: string) {
+  extractTemplate(template: string, tPrefix?: string, logObjects?: readonly string[]) {
+    const extractJsForTemplate = (
+      code: string,
+      replaceValueFn: (key: string, expressionSources?: string[]) => string,
+    ) => this.extractJs(code, replaceValueFn, logObjects)
+
     return extractTemplateLogic(
       template,
       this.generateUniqueKey.bind(this),
-      this.extractJs.bind(this),
+      extractJsForTemplate,
       tPrefix,
     )
   }
@@ -63,14 +76,13 @@ export class VueLangExtractor {
    * @param code 代码内容
    * @param prefix 替换的前缀，默认为 this.$t
    */
-  extractScript(code: string, prefix = 'this.$t') {
-    // console.log(template)
+  extractScript(code: string, prefix = 'this.$t', logObjects?: readonly string[]) {
     return this.extractJs(code, (key, expressionSources) => {
       if (expressionSources?.length) {
         return `${prefix}('${key}', [${expressionSources.join(', ')}])`
       }
       return `${prefix}('${key}')`
-    })
+    }, logObjects)
   }
 
   /**
@@ -78,12 +90,12 @@ export class VueLangExtractor {
    * @param code 代码内容
    * @param prefix 替换的前缀，默认为 t
    */
-  extractJsxScript(code: string, prefix = 't') {
+  extractJsxScript(code: string, prefix = 't', logObjects?: readonly string[]) {
     return this.extractJsx(code, (key, expressionSources) => {
       if (expressionSources?.length) {
         return `${prefix}('${key}', [${expressionSources.join(', ')}])`
       }
       return `${prefix}('${key}')`
-    })
+    }, logObjects)
   }
 }

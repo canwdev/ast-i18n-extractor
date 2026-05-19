@@ -128,6 +128,68 @@ async function testTemplateLiteralWithInterpolation() {
   assert(!result.warnings.some(w => w.message.includes('模板字符串')), '不应再产生手动处理警告')
 }
 
+async function testLoggerIgnore() {
+  const src = `
+    const msg = '${TEXT.toExtract}'
+    logger.log('${TEXT.skipConsole1}')
+    logger.debug('${TEXT.skipConsole2}')
+  `
+  const result = await extractJs(src, 'app')
+  const extractedJson = JSON.stringify(result.extracted)
+
+  assert(extractedJson.includes(TEXT.toExtract), '普通文案应提取')
+  assert(!extractedJson.includes(TEXT.skipConsole1), 'logger.log 参数不应提取')
+  assert(!extractedJson.includes(TEXT.skipConsole2), 'logger.debug 参数不应提取')
+}
+
+async function testCustomLogObjects() {
+  const src = `
+    const msg = '${TEXT.toExtract}'
+    diag.trace('${TEXT.skipConsole1}')
+    console.log('${TEXT.skipConsole2}')
+  `
+  const result = await extractJs(src, 'app', 'js', undefined, undefined, {
+    logObjects: ['diag'],
+  })
+  const extractedJson = JSON.stringify(result.extracted)
+
+  assert(extractedJson.includes(TEXT.toExtract), '普通文案应提取')
+  assert(!extractedJson.includes(TEXT.skipConsole1), '自定义 diag 应跳过')
+  assert(extractedJson.includes(TEXT.skipConsole2), '未列入 logObjects 的 console 应提取')
+}
+
+async function testDateTimeFormatIgnore() {
+  const src = `
+    const fmt = 'YYYY-MM-DD HH:mm:ss'
+    const label = '${TEXT.visibleLabel}'
+  `
+  const result = await extractJs(src, 'app')
+  const extractedJson = JSON.stringify(result.extracted)
+
+  assert(!extractedJson.includes('YYYY-MM-DD'), '时间格式串不应提取')
+  assert(extractedJson.includes(TEXT.visibleLabel), '普通文案应提取')
+}
+
+async function testVueSvgSubtreeIgnore() {
+  const src = `<template>
+  <div>${TEXT.visibleText}</div>
+  <svg viewBox="0 0 30 30">
+    <title>形状备份</title>
+    <g id="页面-1">
+      <text>不应提取的文案</text>
+    </g>
+  </svg>
+</template>
+<script setup></script>`
+  const result = await extractVue(src, 'app')
+  const extractedJson = JSON.stringify(result.extracted)
+
+  assert(extractedJson.includes(TEXT.visibleText), 'svg 外文案应提取')
+  assert(!extractedJson.includes('形状备份'), 'svg 内 title 不应提取')
+  assert(!extractedJson.includes('不应提取的文案'), 'svg 子元素文本不应提取')
+  assert(!extractedJson.includes('页面-1'), 'svg 内 id 文案不应提取')
+}
+
 async function testConsoleIgnoreInJsx() {
   const src = `
     export function Demo() {
@@ -151,6 +213,10 @@ async function main() {
   await testIfElseBranchExtraction()
   await testPathLikeIgnore()
   await testTemplateLiteralWithInterpolation()
+  await testLoggerIgnore()
+  await testCustomLogObjects()
+  await testDateTimeFormatIgnore()
+  await testVueSvgSubtreeIgnore()
   await testConsoleIgnoreInJsx()
   console.log('extractor ignore rules tests passed')
 }

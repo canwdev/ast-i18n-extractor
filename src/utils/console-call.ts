@@ -1,7 +1,15 @@
 import type { CallExpression } from 'estree'
 
-/** 是否为 console.xxx(...) 调用，用于跳过调试日志中的文案提取 */
-export function isConsoleCall(node: { type: string }): boolean {
+/** 默认跳过的日志对象名（obj.method(...)） */
+export const DEFAULT_LOG_OBJECTS = ['console', 'logger'] as const
+
+export type LogObjectName = string
+
+/** 是否为日志类成员调用，如 console.log(...)、logger.warn(...) */
+export function isConsoleCall(
+  node: { type: string },
+  logObjects: readonly LogObjectName[] = DEFAULT_LOG_OBJECTS,
+): boolean {
   if (node.type !== 'CallExpression')
     return false
 
@@ -10,7 +18,8 @@ export function isConsoleCall(node: { type: string }): boolean {
     return false
 
   const { object, property } = callee
-  return object.type === 'Identifier'
-    && object.name === 'console'
-    && property.type === 'Identifier'
+  if (object.type !== 'Identifier' || !logObjects.includes(object.name))
+    return false
+
+  return property.type === 'Identifier'
 }

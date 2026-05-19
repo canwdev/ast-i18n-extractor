@@ -5,7 +5,7 @@ import { NodeTypes } from '@vue/compiler-core'
 import { parse } from '@vue/compiler-dom'
 import { checkKeyNeedExtract, valueNeedExtract } from '../checker'
 import { replaceTemplate } from '../replacer'
-import { shouldProcessBindingAsJs } from '../utils/code-detect'
+import { isSvgElementTag, shouldProcessBindingAsJs } from '../utils/code-detect'
 import { formatValue, removeBrackets } from '../utils/text'
 
 export function extractTemplateLogic(
@@ -70,8 +70,10 @@ export function extractTemplateLogic(
     // console.log('traverse node', node)
     // 节点类型 NodeTypes
     if (node.type === NodeTypes.ELEMENT) {
-      // Node.ELEMENT 类型 (元素节点)
-      // console.log('ELEMENT node', node)
+      // 跳过 <svg> 及其全部子节点（含 <title> 等文案）
+      if (isSvgElementTag(node.tag)) {
+        return
+      }
 
       if (node.props) {
         node.props.forEach((prop) => {

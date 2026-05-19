@@ -25,6 +25,21 @@ export function isSvgPathData(value: string): boolean {
   return /^[MLHVCSQTAZ0-9\s,.+-]+$/i.test(v)
 }
 
+/** 是否为日期/时间格式占位串，如 YYYY-MM-DD HH:mm:ss */
+export function isDateTimeFormatPattern(value: string): boolean {
+  const v = value.trim()
+  if (!/YYYY|YY|MM|DD|HH|mm|ss|SSS/.test(v))
+    return false
+  if (!/^[YMDHdhmsS:\-./\s]+$/.test(v))
+    return false
+  return /YYYY|YY/.test(v) || (/MM/.test(v) && /DD/.test(v))
+}
+
+/** 是否为 SVG 根标签名 */
+export function isSvgElementTag(tag: string): boolean {
+  return tag.toLowerCase() === 'svg'
+}
+
 /** 是否像路径/路由，如 /aaa/bbb/ccc/0/{0} */
 export function isPathLikeString(value: string): boolean {
   const v = value.trim()

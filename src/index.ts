@@ -1,5 +1,5 @@
 import type { SFCBlock, SFCDescriptor } from 'vue-template-compiler'
-import type { WarningItem } from './types'
+import type { ExtractOptions, WarningItem } from './types'
 import { set as _set } from 'lodash-es'
 import { parseComponent } from 'vue-template-compiler'
 
@@ -12,12 +12,19 @@ function formatValue(value: string) {
   return value.replace(/ *\n */g, ' ')
 }
 
-export async function extractJs(src: string, keyPrefix: string, type: 'js' | 'ts' = 'js', tPrefix?: string, vueLangEx?: VueLangExtractor) {
+export async function extractJs(
+  src: string,
+  keyPrefix: string,
+  type: 'js' | 'ts' = 'js',
+  tPrefix?: string,
+  vueLangEx?: VueLangExtractor,
+  options?: ExtractOptions,
+) {
   const textMap: { [key: string]: string } = {}
   vueLangEx = vueLangEx || new VueLangExtractor(keyPrefix)
   // 如果是 ts 文件，假设使用 setup 语法，生成的代码不带 this
   const prefix = tPrefix || (type === 'ts' ? '$t' : 'this.$t')
-  const result = vueLangEx.extractScript(src, prefix)
+  const result = vueLangEx.extractScript(src, prefix, options?.logObjects)
   Object.keys(result.textMap).forEach((key) => {
     _set(textMap, key, formatValue(result.textMap[key] ?? ''))
   })
@@ -28,7 +35,13 @@ export async function extractJs(src: string, keyPrefix: string, type: 'js' | 'ts
   }
 }
 
-export async function extractVue(src: string, keyPrefix: string, tPrefix: string = '', vueLangEx?: VueLangExtractor) {
+export async function extractVue(
+  src: string,
+  keyPrefix: string,
+  tPrefix: string = '',
+  vueLangEx?: VueLangExtractor,
+  options?: ExtractOptions,
+) {
   const parsed = parseComponent(src) as SFCDescriptor & { scriptSetup?: SFCBlock }
   console.log('[extractVue] parse vue OK')
   const newVueTmplArr: string[] = []
@@ -46,7 +59,7 @@ export async function extractVue(src: string, keyPrefix: string, tPrefix: string
     const isSetup = isSetupBlock || isTs
     const prefix = tPrefix || (isSetup ? '$t' : 'this.$t')
 
-    const result = vueLangEx.extractScript(content, prefix)
+    const result = vueLangEx.extractScript(content, prefix, options?.logObjects)
 
     Object.keys(result.textMap).forEach((key) => {
       _set(textMap, key, formatValue(result.textMap[key] ?? ''))
@@ -95,7 +108,7 @@ export async function extractVue(src: string, keyPrefix: string, tPrefix: string
   }
 
   if (parsed.template) {
-    const result = vueLangEx.extractTemplate(parsed.template.content, tPrefix)
+    const result = vueLangEx.extractTemplate(parsed.template.content, tPrefix, options?.logObjects)
     Object.keys(result.textMap).forEach((key) => {
       _set(textMap, key, formatValue(result.textMap[key] ?? ''))
     })
@@ -132,11 +145,17 @@ export async function extractVue(src: string, keyPrefix: string, tPrefix: string
   }
 }
 
-export async function extractJsx(src: string, keyPrefix: string, tPrefix?: string, vueLangEx?: VueLangExtractor) {
+export async function extractJsx(
+  src: string,
+  keyPrefix: string,
+  tPrefix?: string,
+  vueLangEx?: VueLangExtractor,
+  options?: ExtractOptions,
+) {
   const textMap: { [key: string]: string } = {}
   vueLangEx = vueLangEx || new VueLangExtractor(keyPrefix)
   const prefix = tPrefix || 't'
-  const result = vueLangEx.extractJsxScript(src, prefix)
+  const result = vueLangEx.extractJsxScript(src, prefix, options?.logObjects)
   Object.keys(result.textMap).forEach((key) => {
     _set(textMap, key, formatValue(result.textMap[key] ?? ''))
   })
@@ -149,4 +168,6 @@ export async function extractJsx(src: string, keyPrefix: string, tPrefix?: strin
 
 // export common functions
 export { findExistingI18nKeys } from './find-existing-i18n'
+export type { ExtractOptions, WarningItem } from './types'
 export { formatI18nKey, valueNeedExtract, VueLangExtractor }
+export { DEFAULT_LOG_OBJECTS, isConsoleCall } from './utils/console-call'

@@ -11,7 +11,8 @@ import jsx from 'acorn-jsx'
 import { valueNeedExtract } from '../checker'
 import { replaceTemplate } from '../replacer'
 import { getIfStatementChildNodes } from '../utils/ast-nodes'
-import { isConsoleCall } from '../utils/console-call'
+import { isSvgElementTag } from '../utils/code-detect'
+import { DEFAULT_LOG_OBJECTS, isConsoleCall } from '../utils/console-call'
 import { processTemplateLiteralWithExpressions } from '../utils/template-literal-i18n'
 import { formatValue } from '../utils/text'
 
@@ -24,10 +25,24 @@ interface Node {
   [key: string]: any
 }
 
+function getJsxElementName(name: Node | undefined): string | null {
+  if (!name)
+    return null
+  if (name.type === 'JSXIdentifier')
+    return name.name as string
+  if (name.type === 'JSXNamespacedName') {
+    const ns = name.namespace as { name: string }
+    const id = name.name as { name: string }
+    return `${ns.name}:${id.name}`
+  }
+  return null
+}
+
 export function extractJsxLogic(
   jsCode: string,
   replaceValueFn: ReplaceValueFn,
   generateUniqueKey: (text: string) => string,
+  logObjects: readonly string[] = DEFAULT_LOG_OBJECTS,
 ) {
   const program: acorn.Program = acorn.Parser.extend(tsPlugin(), jsx()).parse(jsCode, {
     sourceType: 'module',
@@ -76,7 +91,7 @@ export function extractJsxLogic(
       case 'TemplateLiteral':
         return (node.quasis as Node[]) || []
       case 'CallExpression':
-        if (isConsoleCall(node))
+        if (isConsoleCall(node, logObjects))
           return []
         return [node.callee as Node, ...(node.arguments as Node[] || [])]
       case 'ConditionalExpression':
@@ -129,12 +144,21 @@ export function extractJsxLogic(
         return [node.id as Node, node.init as Node].filter(Boolean)
 
       // JSX Support
-      case 'JSXElement':
+      case 'JSXElement': {
+        const tag = getJsxElementName(node.openingElement?.name as Node | undefined)
+        if (tag && isSvgElementTag(tag))
+          return []
+        return [
+          node.openingElement,
+          ...(node.children || []),
+          node.closingElement,
+        ].filter(Boolean)
+      }
       case 'JSXFragment':
         return [
-          node.openingElement || node.openingFragment,
+          node.openingFragment,
           ...(node.children || []),
-          node.closingElement || node.closingFragment,
+          node.closingFragment,
         ].filter(Boolean)
       case 'JSXExpressionContainer':
         return [node.expression as Node]
