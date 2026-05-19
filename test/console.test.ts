@@ -73,6 +73,33 @@ async function testVueTemplateCodeIgnore() {
   assert(extractedJson.includes('Bandwidth'), '静态属性文案应提取')
 }
 
+async function testIfElseBranchExtraction() {
+  const msgIf = '内层 if 分支提示文案'
+  const msgElse = '内层 else 分支提示文案'
+  const msgOuterElse = '外层 else 分支提示文案'
+  const src = `
+    if (code === 1) {
+      if (filesData.length === 1) {
+        window.$toast.info('${msgIf}')
+      } else {
+        window.$toast.info('${msgElse}')
+      }
+    } else {
+      window.$toast.success('${msgOuterElse}')
+    }
+  `
+  const result = await extractJs(src, 'app', 'ts')
+  const extractedJson = JSON.stringify(result.extracted)
+  const output = result.output
+
+  assert(extractedJson.includes(msgIf), 'if 分支文案应提取')
+  assert(extractedJson.includes(msgElse), 'else 分支文案应提取')
+  assert(extractedJson.includes(msgOuterElse), '外层 else 文案应提取')
+  assert(output.includes("$t('app."), '应替换为 $t')
+  assert(!output.includes(msgElse), 'else 分支应完成替换')
+  assert(!output.includes(msgOuterElse), '外层 else 应完成替换')
+}
+
 async function testPathLikeIgnore() {
   const src = `
     const route = '/aaa/bbb/SD/0/{0}'
@@ -123,6 +150,7 @@ async function main() {
   await testBracketPropIgnore()
   await testCodeExpressionAndSvgIgnore()
   await testVueTemplateCodeIgnore()
+  await testIfElseBranchExtraction()
   await testPathLikeIgnore()
   await testTemplateLiteralWithInterpolation()
   await testConsoleIgnoreInJsx()

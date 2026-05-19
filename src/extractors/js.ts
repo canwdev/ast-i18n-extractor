@@ -10,6 +10,7 @@ import { tsPlugin } from '@sveltejs/acorn-typescript'
 import * as acorn from 'acorn'
 import { valueNeedExtract } from '../checker'
 import { replaceTemplate } from '../replacer'
+import { getIfStatementChildNodes } from '../utils/ast-nodes'
 import { isConsoleCall } from '../utils/console-call'
 import { processTemplateLiteralWithExpressions } from '../utils/template-literal-i18n'
 import { formatValue } from '../utils/text'
@@ -58,10 +59,7 @@ export function extractJsLogic(
         }
         return [node.body as Node]
       case 'IfStatement':
-        if (node.consequent.type === 'BlockStatement') {
-          return (node.consequent.body as Node[]) || []
-        }
-        return [node.consequent as Node]
+        return getIfStatementChildNodes(node as unknown as import('estree').IfStatement) as unknown as Node[]
       case 'FunctionExpression':
       case 'FunctionDeclaration': // 可选：也支持 FunctionDeclaration
         return [...(node.params as Node[] || []), node.body as Node] // 遍历参数和函数体
