@@ -21,7 +21,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "type-check": "tsc --noEmit",
-    "test": "bun run ./test/console.test.ts && bun run ./test/existing-i18n.test.ts && bun run ./test/test.ts",
+    "test": "bun run ./test/format-key.test.ts && bun run ./test/console.test.ts && bun run ./test/existing-i18n.test.ts && bun run ./test/test.ts",
     "test:inspect": "bun --inspect-wait run --watch ./test/test.ts"
   },
   "dependencies": {

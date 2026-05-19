@@ -4,8 +4,9 @@ import clsx from 'clsx'
 import { merge } from 'lodash-es'
 import { AlertCircle, CheckCircle, ChevronDown, ChevronRight, Files, FileText, FolderOpen, Save, Scan, X, XCircle } from 'lucide-react'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { getFileType, getLanguageFromPath } from '../utils/fileTypeUtils'
+import { parseIgnorePatterns, shouldIgnoreFile } from '../utils/ignorePatterns'
 
 interface ScanResult {
   filePath: string
@@ -30,6 +31,8 @@ const SCAN_FILE_TYPES = [{
 export interface ScannerProps {
   keyPrefix: string
   tPrefix: string
+  /** 逗号/换行分隔的正则，匹配则跳过扫描 */
+  ignorePatterns?: string
 }
 
 interface FileSystemHandle {
@@ -68,7 +71,11 @@ declare global {
   }
 }
 
-export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
+export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProps) {
+  const { patterns: ignoreRegexList, invalid: invalidIgnorePatterns } = useMemo(
+    () => parseIgnorePatterns(ignorePatterns),
+    [ignorePatterns],
+  )
   const [jsonFilePath, setJsonFilePath] = useState<string>('')
   const [jsonFileHandle, setJsonFileHandle] = useState<FileSystemFileHandle | null>(null)
   const [existingJson, setExistingJson] = useState<Record<string, string>>({})
@@ -119,8 +126,14 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
   const canShowDiff = (result: ScanResult) =>
     result.originalContent !== undefined && result.output !== undefined
 
+  const hasExtractedContent = (result: ScanResult) =>
+    Object.keys(result.extracted).length > 0
+
+  /** 仅保存确有提取且输出有变的文件（避免无提取时 SFC 重组导致误写盘） */
   const hasFileChanges = (result: ScanResult) =>
-    canShowDiff(result) && result.output !== result.originalContent
+    hasExtractedContent(result)
+    && canShowDiff(result)
+    && result.output !== result.originalContent
 
   const changedResults = scanResults.filter(hasFileChanges)
 
@@ -159,7 +172,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
     try {
       let savedFileCount = 0
       for (const result of filesToSave) {
-        if (result.output === undefined) {
+        if (result.output === undefined || !hasExtractedContent(result)) {
           continue
         }
         try {
@@ -303,6 +316,8 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
     const vueLangEx = new VueLangExtractor(keyPrefix)
 
     for (const handle of handles) {
+      if (shouldIgnoreFile(handle.name, ignoreRegexList))
+        continue
       await processFile(handle, handle.name, vueLangEx, results, allExtracted, allExistedKeys)
     }
 
@@ -329,9 +344,12 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
       }
       else if (entry.kind === 'file') {
         const fileEntry = entry as FileSystemFileHandle
+        const filePath = `${path}${entry.name}`
         if (getFileType(entry.name) === null)
           return
-        await processFile(fileEntry, `${path}${entry.name}`, vueLangEx, results, allExtracted, allExistedKeys)
+        if (shouldIgnoreFile(filePath, ignoreRegexList))
+          return
+        await processFile(fileEntry, filePath, vueLangEx, results, allExtracted, allExistedKeys)
       }
     }
 
@@ -380,8 +398,15 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
         types: [...SCAN_FILE_TYPES],
         multiple: true,
       })
-      const supported = handles.filter(h => getFileType(h.name) !== null)
+      const supported = handles.filter(
+        h => getFileType(h.name) !== null && !shouldIgnoreFile(h.name, ignoreRegexList),
+      )
       if (supported.length === 0) {
+        setToast({
+          message: handles.length > 0 ? '所选文件均被 Ignore 规则跳过或不支持' : '未选择文件',
+          type: 'error',
+        })
+        setTimeout(setToast, 3000, null)
         return
       }
       setFilesLabel(supported.length === 1 ? supported[0].name : `${supported.length} files`)
@@ -433,7 +458,14 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
       <div className="p-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
-        <div className="flex items-center gap-4">
+        {invalidIgnorePatterns.length > 0 && (
+          <p className="text-xs text-orange-600 dark:text-orange-400 mb-2">
+            无效 Ignore 正则:
+            {' '}
+            {invalidIgnorePatterns.join(', ')}
+          </p>
+        )}
+        <div className="flex items-center gap-4 flex-wrap">
           <button
             onClick={selectFolder}
             disabled={isScanning || hasScanSource}
@@ -529,32 +561,10 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
           )}
         </div>
 
-        {visibleResults.length > 0 && (
-          <div className="mt-3 flex items-center gap-4 text-sm">
-            <span className="flex items-center gap-1">
-              <CheckCircle className="w-4 h-4 text-green-500" />
-              {successCount}
-              {' '}
-              success
-            </span>
-            <span className="flex items-center gap-1">
-              <AlertCircle className="w-4 h-4 text-orange-500" />
-              {warningCount}
-              {' '}
-              warnings
-            </span>
-            <span className="flex items-center gap-1">
-              <XCircle className="w-4 h-4 text-red-500" />
-              {errorCount}
-              {' '}
-              errors
-            </span>
-          </div>
-        )}
       </div>
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <div className="h-10 bg-gray-100 dark:bg-gray-800 flex items-center px-2 border-b border-gray-200 dark:border-gray-700 shrink-0">
+        <div className="h-10 bg-gray-100 dark:bg-gray-800 flex items-center px-2 border-b border-gray-200 dark:border-gray-700 shrink-0 justify-between">
           <div className="flex gap-1">
             <button
               onClick={() => setActiveTab('extracted')}
@@ -590,6 +600,29 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
               {`Existed Keys Before (${existedI18nKeys.length})`}
             </button>
           </div>
+
+          {visibleResults.length > 0 && (
+            <div className="flex items-center gap-4 text-sm">
+              <span className="flex items-center gap-1">
+                <CheckCircle className="w-4 h-4 text-green-500" />
+                {successCount}
+                {' '}
+                success
+              </span>
+              <span className="flex items-center gap-1">
+                <AlertCircle className="w-4 h-4 text-orange-500" />
+                {warningCount}
+                {' '}
+                warnings
+              </span>
+              <span className="flex items-center gap-1">
+                <XCircle className="w-4 h-4 text-red-500" />
+                {errorCount}
+                {' '}
+                errors
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 relative bg-white dark:bg-gray-900 overflow-y-auto">
@@ -731,6 +764,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
             </div>
           </div>
         </div>
+
       </div>
 
       {toast && (

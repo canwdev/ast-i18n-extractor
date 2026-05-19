@@ -1,6 +1,18 @@
 import type { WarningItem } from './types'
 import { parse } from 'acorn'
-import { isDateTimeFormatPattern, isPathLikeString, isSvgPathData, looksLikeCodeExpression } from './utils/code-detect'
+import {
+  isCssLikeValue,
+  isDateTimeFormatPattern,
+  isI18nKeyLike,
+  isLocaleCode,
+  isMimeOrExtension,
+  isPathLikeString,
+  isRegexLiteralString,
+  isSvgPathData,
+  isUuidOrHash,
+  isVersionString,
+  looksLikeCodeExpression,
+} from './utils/code-detect'
 
 const vueKeyMap: Record<string, boolean> = {
   id: true,
@@ -13,6 +25,17 @@ const vueKeyMap: Record<string, boolean> = {
   ref: true,
   style: true,
   type: true,
+  is: true,
+  as: true,
+  tag: true,
+  slot: true,
+  name: true,
+  role: true,
+  xmlns: true,
+  fill: true,
+  stroke: true,
+  width: true,
+  height: true,
   ratio: true,
   src: true,
   visible: true,
@@ -20,14 +43,23 @@ const vueKeyMap: Record<string, boolean> = {
   viewBox: true,
   points: true,
   transform: true,
+  tabindex: true,
+  maxlength: true,
+  minlength: true,
+  for: true,
+  media: true,
+  charset: true,
+  sizes: true,
 }
 export function checkKeyNeedExtract(key: string) {
-  // console.log('key', key)
   if (vueKeyMap[key]) {
     return false
   }
-  // data-*
   if (key.startsWith('data-')) {
+    return false
+  }
+  // aria-label 等可翻译；其余 aria-* 多为无障碍状态
+  if (key.startsWith('aria-') && key !== 'aria-label') {
     return false
   }
   return true
@@ -84,6 +116,34 @@ export function valueNeedExtract(value: string, handleWarning?: (warning: Warnin
 
   // 日期/时间格式占位，如 YYYY-MM-DD HH:mm:ss
   if (isDateTimeFormatPattern(value)) {
+    return false
+  }
+
+  if (isCssLikeValue(value)) {
+    return false
+  }
+
+  if (isVersionString(value)) {
+    return false
+  }
+
+  if (isLocaleCode(value)) {
+    return false
+  }
+
+  if (isUuidOrHash(value)) {
+    return false
+  }
+
+  if (isMimeOrExtension(value)) {
+    return false
+  }
+
+  if (isRegexLiteralString(value)) {
+    return false
+  }
+
+  if (isI18nKeyLike(value)) {
     return false
   }
 

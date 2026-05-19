@@ -59,6 +59,7 @@ async function testVueTemplateCodeIgnore() {
   <svg><path d="M4 9l3 3 5-6" /></svg>
   <button :disabled="actionBusy || !hasActiveBackuping">{{ mOffset + 1 }}</button>
   <Comp :selected="isSelected(w, true)" />
+  <component :is="'动态组件名'" is="StaticComp" />
   <span title="${TEXT.sampleEn}">${TEXT.visibleText}</span>
 </template>
 <script setup></script>`
@@ -69,6 +70,8 @@ async function testVueTemplateCodeIgnore() {
   assert(!extractedJson.includes('M4 9l3'), 'SVG path d 不应提取')
   assert(!extractedJson.includes('isSelected'), ':selected 表达式不应整段提取')
   assert(!extractedJson.includes('actionBusy'), ':disabled 表达式不应提取')
+  assert(!extractedJson.includes('动态组件名'), ':is 绑定值不应提取')
+  assert(!extractedJson.includes('StaticComp'), 'is 属性值不应提取')
   assert(!output.includes('mOffset + 1') || !extractedJson.includes('mOffset'), '插值表达式不应提取')
   assert(extractedJson.includes(TEXT.visibleText), '模板文本应提取')
   assert(extractedJson.includes(TEXT.sampleEn), '静态属性文案应提取')
@@ -190,6 +193,62 @@ async function testVueSvgSubtreeIgnore() {
   assert(!extractedJson.includes('页面-1'), 'svg 内 id 文案不应提取')
 }
 
+async function testTechnicalStringIgnore() {
+  const src = `
+    const color = '#ff5500'
+    const ver = 'v1.2.3'
+    const loc = 'zh-CN'
+    const uuid = '550e8400-e29b-41d4-a716-446655440000'
+    const mime = 'image/png'
+    const ext = '.json'
+    const re = '/^\\\\d+$/'
+    const i18nKey = 'app.home.title'
+    const label = '${TEXT.visibleLabel}'
+  `
+  const result = await extractJs(src, 'app')
+  const extractedJson = JSON.stringify(result.extracted)
+
+  assert(!extractedJson.includes('#ff5500'), '颜色不应提取')
+  assert(!extractedJson.includes('v1.2.3'), '版本号不应提取')
+  assert(!extractedJson.includes('zh-CN'), 'locale 不应提取')
+  assert(!extractedJson.includes('550e8400'), 'UUID 不应提取')
+  assert(!extractedJson.includes('image/png'), 'MIME 不应提取')
+  assert(!extractedJson.includes('app.home'), 'i18n key 不应提取')
+  assert(extractedJson.includes(TEXT.visibleLabel), '普通文案应提取')
+}
+
+async function testVueCodePreSubtreeIgnore() {
+  const src = `<template>
+  <p>${TEXT.visibleText}</p>
+  <code>代码块内文案</code>
+  <pre>预格式化文案</pre>
+  <style>.x { content: '样式内文案'; }</style>
+</template>
+<script setup></script>`
+  const result = await extractVue(src, 'app')
+  const extractedJson = JSON.stringify(result.extracted)
+
+  assert(extractedJson.includes(TEXT.visibleText), '普通节点应提取')
+  assert(!extractedJson.includes('代码块内文案'), 'code 子树不应提取')
+  assert(!extractedJson.includes('预格式化文案'), 'pre 子树不应提取')
+  assert(!extractedJson.includes('样式内文案'), 'style 子树不应提取')
+}
+
+async function testVueAriaAndSlotAttrsIgnore() {
+  const src = `<template>
+  <div role="button" aria-hidden="true" aria-label="可翻译标签">${TEXT.visibleText}</div>
+  <template slot="header">插槽名区域</template>
+</template>
+<script setup></script>`
+  const result = await extractVue(src, 'app')
+  const extractedJson = JSON.stringify(result.extracted)
+
+  assert(!extractedJson.includes('button'), 'role 值不应提取')
+  assert(!extractedJson.includes('true'), 'aria-hidden 值不应提取')
+  assert(extractedJson.includes('可翻译标签'), 'aria-label 应提取')
+  assert(extractedJson.includes(TEXT.visibleText), '文本节点应提取')
+}
+
 async function testConsoleIgnoreInJsx() {
   const src = `
     export function Demo() {
@@ -217,6 +276,9 @@ async function main() {
   await testCustomLogObjects()
   await testDateTimeFormatIgnore()
   await testVueSvgSubtreeIgnore()
+  await testTechnicalStringIgnore()
+  await testVueCodePreSubtreeIgnore()
+  await testVueAriaAndSlotAttrsIgnore()
   await testConsoleIgnoreInJsx()
   console.log('extractor ignore rules tests passed')
 }

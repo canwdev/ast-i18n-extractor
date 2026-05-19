@@ -17,7 +17,7 @@ export function formatI18nKey(val: number | string, replace: string = '_', limit
   // 中文转换拼音
   if (containsChinese(str)) {
     try {
-      str = pinyin(str, { toneType: 'none', nonZh: 'consecutive' })
+      str = pinyin(str, { toneType: 'none', nonZh: 'consecutive', v: true })
     }
     catch (e) {
       console.warn(e)

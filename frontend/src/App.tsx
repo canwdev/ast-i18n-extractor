@@ -14,6 +14,10 @@ function App() {
   const [activeView, setActiveView] = useLocalStorage<'extractor' | 'scanner'>('ast-i18n-active-view', 'scanner')
   const [keyPrefix, setKeyPrefix] = useLocalStorage<string>('ast-i18n-key-prefix', 'app')
   const [tPrefix, setTPrefix] = useLocalStorage<string>('ast-i18n-t-prefix', '')
+  const [ignorePatterns, setIgnorePatterns] = useLocalStorage<string>(
+    'ast-i18n-ignore-patterns',
+    String.raw`\.test\.|\.spec\.|node_modules|dist/`,
+  )
 
   const VIEWS = [
     { id: 'extractor', label: 'Code Extractor', icon: Code },
@@ -78,6 +82,23 @@ function App() {
             placeholder="keep default"
           />
         </div>
+
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <label
+            className="text-sm text-gray-500 shrink-0"
+            title="Comma or newline separated regex, matches path or filename"
+
+          >
+            Ignore:
+          </label>
+          <input
+            type="text"
+            value={ignorePatterns}
+            onChange={e => setIgnorePatterns(e.target.value)}
+            className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm min-w-0 flex-1 max-w-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            placeholder={String.raw`\.test\.|\.spec\.|node_modules`}
+          />
+        </div>
       </div>
 
       {activeView === 'extractor' && (
@@ -91,6 +112,7 @@ function App() {
         <Scanner
           keyPrefix={keyPrefix!}
           tPrefix={tPrefix!}
+          ignorePatterns={ignorePatterns ?? ''}
         />
       )}
     </div>

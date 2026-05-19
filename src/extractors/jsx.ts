@@ -11,7 +11,7 @@ import jsx from 'acorn-jsx'
 import { valueNeedExtract } from '../checker'
 import { replaceTemplate } from '../replacer'
 import { getIfStatementChildNodes } from '../utils/ast-nodes'
-import { isSvgElementTag } from '../utils/code-detect'
+import { isSkipSubtreeTag } from '../utils/code-detect'
 import { DEFAULT_LOG_OBJECTS, isConsoleCall } from '../utils/console-call'
 import { processTemplateLiteralWithExpressions } from '../utils/template-literal-i18n'
 import { formatValue } from '../utils/text'
@@ -146,7 +146,7 @@ export function extractJsxLogic(
       // JSX Support
       case 'JSXElement': {
         const tag = getJsxElementName(node.openingElement?.name as Node | undefined)
-        if (tag && isSvgElementTag(tag))
+        if (tag && isSkipSubtreeTag(tag))
           return []
         return [
           node.openingElement,
