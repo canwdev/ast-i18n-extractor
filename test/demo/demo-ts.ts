@@ -38,11 +38,11 @@ const isCN = ref(false)
 const off = ref(10)
 const item = ref<Item>({
   id: 1,
-  label: 'PDF',
-  label2: 'Welcome to the Hotel California',
+  label: 'FormatA',
+  label2: 'Welcome to the sample venue',
 })
 const testList = ref<TestListItem[]>(
-  ['Facebook', 'Twitter', 'Instagram', 'TikTok', 'YouTube'].map(name => ({
+  ['PlatformA', 'PlatformB', 'PlatformC', 'PlatformD', 'PlatformE'].map(name => ({
     name,
   })),
 )
@@ -64,37 +64,37 @@ const demoFeats = computed<string[][]>(() => [
   [
     'Compression Option',
     'Video Quality',
-    'Bandwidth',
+    'SampleMetric',
     'Ideal Use Cases',
     'Network Requirement',
   ],
   [
-    'Full PDF',
+    'Full FormatA',
     'Highest',
     'High (Lossless)',
     'High-end studios, live broadcasts',
     'High-speed network',
   ],
   [
-    'PDF HX',
+    'FormatA HX',
     'Good',
     'Lowest',
     'Balanced',
-    'Remote production, education, corporate comms',
+    'Use case description one',
   ],
   [
-    'PDF HX2',
+    'FormatA HX2',
     'Good',
     'Low',
-    'Enhanced efficiency',
-    'Reliable low-latency connections',
+    'Feature note one',
+    'Use case description two',
   ],
   [
-    'PDF HX3',
+    'FormatA HX3',
     'Great',
     'Medium',
-    'Greater efficiency',
-    'Limited bandwidth scenarios',
+    'Feature note two',
+    'Feature note three',
   ],
 ])
 
@@ -134,7 +134,7 @@ const videoData2 = ref<VideoData>({
 
 function onLangChange(lang: string = 'Demo text') {
   alert(`Hello world!${lang}`)
-  const text = 'Plenty of room at the Hotel California'
+  const text = 'Plenty of room at the sample venue'
   const text2 = `You can find ${lang} here !!!`
   console.log(text)
 }

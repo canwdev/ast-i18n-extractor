@@ -1,11 +1,11 @@
 <template>
   <div class="demo-vue-2">
-    <div class="ta-h2">{{ 'Demo Vue2 Component Long Long Long Long Text 01' }}</div>
-    <div class="ta-h2">{{ 'Demo Vue2 Component Long Long Long Long Text 02' }}</div>
-    <div class="ta-h2">{{ `On Sale, ${this.off} OFF!` }}</div>
-    <div class="ta-h2" v-html="`Cool HTML`"></div>
-    <div class="ta-h2" v-html="title"></div>
-    <div class="ta-h1">{{ title || $t('navbar.accessories') }}</div>
+    <div class="text-h2">{{ 'Demo Vue2 Component Long Long Long Long Text 01' }}</div>
+    <div class="text-h2">{{ 'Demo Vue2 Component Long Long Long Long Text 02' }}</div>
+    <div class="text-h2">{{ `On Sale, ${this.off} OFF!` }}</div>
+    <div class="text-h2" v-html="`Cool HTML`"></div>
+    <div class="text-h2" v-html="title"></div>
+    <div class="text-h1">{{ title || $t('navbar.accessories') }}</div>
     <a
       v-if="item.moreLink"
       :href="item.moreLink"
@@ -15,7 +15,7 @@
       :phone="`iPhone`"
       :mac="`iMac`"
       :oses="['macOS', 'Windows', `Linux`, 'Android OS']"
-      :data-ndi="`PDF`"
+      :data-ndi="`FormatA`"
       target="_blank"
       class="compare-more"
     >
@@ -30,7 +30,7 @@
           :lyric2="'Hello, it\'s me. I was wondering if after all these years you\'d like to meet.'"
           :lyric3="`I'm a Barbie girl, in a Barbie world. Life in plastic, it's fantastic.`"
         >
-          <div class="lr-title ta-h1">Wake me up when September ends.</div>
+          <div class="lr-title text-h1">Wake me up when September ends.</div>
           <div class="lr-desc ta-text">
             "Just a small town girl, livin' in a lonely world. She took the midnight train goin'
             anywhere." - Journey, Don't Stop Believin' "I've got sunshine on a cloudy day. When it's
@@ -104,7 +104,7 @@
 
     <SubComponent1
       class="padding-120"
-      title-class="ta-h2"
+      title-class="text-h2"
       :title="`I’ve talked to nearly 30,000 people on my show`"
       :desc="`And in the words of Maya Angelou, ‘People will forget what you said, people will forget what you did, but people will never forget how you made them feel.’ So, the real work of your life is to figure out what that is that you're supposed to be doing. And the way you do that is by asking yourself the right questions. And I’ve told you a couple of them.`"
     >
@@ -146,7 +146,7 @@ export default {
     })
   },
   name: 'DemoVue2',
-  label2: 'Welcome to the XXX California',
+  label2: 'Welcome to the sample region',
   components: {SubComponent2, SubComponent1, TestComponent},
   data() {
     return {
@@ -154,10 +154,10 @@ export default {
       off: 10,
       item: {
         id: 1,
-        label: 'PDF',
-        label2: 'Welcome to the Hotel California',
+        label: 'FormatA',
+        label2: 'Welcome to the sample venue',
       },
-      testList: ['Facebook', 'Twitter', 'Instagram', 'TikTok', 'YouTube'],
+      testList: ['PlatformA', 'PlatformB', 'PlatformC', 'PlatformD', 'PlatformE'],
     }
   },
   computed: {
@@ -179,27 +179,27 @@ export default {
         [
           'Compression Option',
           'Video Quality',
-          'Bandwidth',
+          'SampleMetric',
           'Ideal Use Cases',
           'Network Requirement',
         ],
         [
-          'Full PDF',
+          'Full FormatA',
           'Highest',
           'High (Lossless)',
           'High-end studios, live broadcasts',
           'High-speed network',
         ],
-        ['PDF HX', 'Good', 'Lowest', 'Balanced', 'Remote production, education, corporate comms'],
-        ['PDF HX2', 'Good', 'Low', 'Enhanced efficiency', 'Reliable low-latency connections'],
-        ['PDF HX3', 'Great', 'Medium', 'Greater efficiency', 'Limited bandwidth scenarios'],
+        ['FormatA HX', 'Good', 'Lowest', 'Balanced', 'Use case description one'],
+        ['FormatA HX2', 'Good', 'Low', 'Feature note one', 'Use case description two'],
+        ['FormatA HX3', 'Great', 'Medium', 'Feature note two', 'Feature note three'],
       ]
     },
   },
   methods: {
     onLangChange(lang = 'Demo text') {
       alert('Hello world!' + lang)
-      const text = 'Plenty of room at the Hotel California'
+      const text = 'Plenty of room at the sample venue'
       const text2 = `You can find ${lang} here !!!`
       console.log(text)
     },

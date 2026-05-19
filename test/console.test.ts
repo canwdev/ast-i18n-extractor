@@ -1,4 +1,5 @@
 import { extractJs, extractJsx, extractVue } from '../src/index'
+import { TEXT } from './fixtures/text'
 
 function assert(condition: boolean, message: string) {
   if (!condition)
@@ -7,25 +8,25 @@ function assert(condition: boolean, message: string) {
 
 async function testConsoleIgnoreInJs() {
   const src = `
-    const msg = '应该提取'
-    console.log('不应提取')
-    console.warn('也不应提取')
-    console.error(\`模板也不应提取\`)
+    const msg = '${TEXT.toExtract}'
+    console.log('${TEXT.skipConsole1}')
+    console.warn('${TEXT.skipConsole2}')
+    console.error(\`${TEXT.skipConsoleTpl}\`)
   `
   const result = await extractJs(src, 'app')
   const extractedJson = JSON.stringify(result.extracted)
 
-  assert(extractedJson.includes('应该提取'), '应提取普通字符串')
-  assert(!extractedJson.includes('不应提取'), 'console.log 参数不应提取')
-  assert(!extractedJson.includes('也不应提取'), 'console.warn 参数不应提取')
-  assert(!extractedJson.includes('模板也不应提取'), 'console.error 模板参数不应提取')
+  assert(extractedJson.includes(TEXT.toExtract), '应提取普通字符串')
+  assert(!extractedJson.includes(TEXT.skipConsole1), 'console.log 参数不应提取')
+  assert(!extractedJson.includes(TEXT.skipConsole2), 'console.warn 参数不应提取')
+  assert(!extractedJson.includes(TEXT.skipConsoleTpl), 'console.error 模板参数不应提取')
   assert(result.output.includes('this.$t('), '输出应将普通字符串替换为 i18n 调用')
 }
 
 async function testBracketPropIgnore() {
   const src = `
     const keys = ['[modelValue]', '[inputValue]', '[marks]']
-    const label = '用户可见文案'
+    const label = '${TEXT.visibleLabel}'
   `
   const result = await extractJs(src, 'app')
   const extractedJson = JSON.stringify(result.extracted)
@@ -33,7 +34,7 @@ async function testBracketPropIgnore() {
   assert(!extractedJson.includes('[modelValue]'), '[modelValue] 不应提取')
   assert(!extractedJson.includes('[inputValue]'), '[inputValue] 不应提取')
   assert(!extractedJson.includes('[marks]'), '[marks] 不应提取')
-  assert(extractedJson.includes('用户可见文案'), '普通文案应提取')
+  assert(extractedJson.includes(TEXT.visibleLabel), '普通文案应提取')
 }
 
 async function testCodeExpressionAndSvgIgnore() {
@@ -42,7 +43,7 @@ async function testCodeExpressionAndSvgIgnore() {
     const b = actionBusy || !hasActiveBackuping
     const c = isSelected(w, true)
     const path = 'M2899,0 L2899,5786 L0,5786 L0,0 L2899,0 Z'
-    const label = 'Bandwidth'
+    const label = '${TEXT.sampleEn}'
   `
   const result = await extractJs(src, 'app')
   const extractedJson = JSON.stringify(result.extracted)
@@ -50,7 +51,7 @@ async function testCodeExpressionAndSvgIgnore() {
   assert(!extractedJson.includes('mOffset'), '算术表达式不应提取')
   assert(!extractedJson.includes('isSelected'), '函数调用不应提取')
   assert(!extractedJson.includes('M2899,0'), 'SVG path 不应提取')
-  assert(extractedJson.includes('Bandwidth'), '普通英文文案应提取')
+  assert(extractedJson.includes(TEXT.sampleEn), '普通英文文案应提取')
 }
 
 async function testVueTemplateCodeIgnore() {
@@ -58,7 +59,7 @@ async function testVueTemplateCodeIgnore() {
   <svg><path d="M4 9l3 3 5-6" /></svg>
   <button :disabled="actionBusy || !hasActiveBackuping">{{ mOffset + 1 }}</button>
   <Comp :selected="isSelected(w, true)" />
-  <span title="Bandwidth">可见文本</span>
+  <span title="${TEXT.sampleEn}">${TEXT.visibleText}</span>
 </template>
 <script setup></script>`
   const result = await extractVue(src, 'app')
@@ -69,62 +70,59 @@ async function testVueTemplateCodeIgnore() {
   assert(!extractedJson.includes('isSelected'), ':selected 表达式不应整段提取')
   assert(!extractedJson.includes('actionBusy'), ':disabled 表达式不应提取')
   assert(!output.includes('mOffset + 1') || !extractedJson.includes('mOffset'), '插值表达式不应提取')
-  assert(extractedJson.includes('可见文本'), '模板文本应提取')
-  assert(extractedJson.includes('Bandwidth'), '静态属性文案应提取')
+  assert(extractedJson.includes(TEXT.visibleText), '模板文本应提取')
+  assert(extractedJson.includes(TEXT.sampleEn), '静态属性文案应提取')
 }
 
 async function testIfElseBranchExtraction() {
-  const msgIf = '内层 if 分支提示文案'
-  const msgElse = '内层 else 分支提示文案'
-  const msgOuterElse = '外层 else 分支提示文案'
   const src = `
     if (code === 1) {
       if (filesData.length === 1) {
-        window.$toast.info('${msgIf}')
+        window.$toast.info('${TEXT.msgIf}')
       } else {
-        window.$toast.info('${msgElse}')
+        window.$toast.info('${TEXT.msgElse}')
       }
     } else {
-      window.$toast.success('${msgOuterElse}')
+      window.$toast.success('${TEXT.msgOuterElse}')
     }
   `
   const result = await extractJs(src, 'app', 'ts')
   const extractedJson = JSON.stringify(result.extracted)
   const output = result.output
 
-  assert(extractedJson.includes(msgIf), 'if 分支文案应提取')
-  assert(extractedJson.includes(msgElse), 'else 分支文案应提取')
-  assert(extractedJson.includes(msgOuterElse), '外层 else 文案应提取')
+  assert(extractedJson.includes(TEXT.msgIf), 'if 分支文案应提取')
+  assert(extractedJson.includes(TEXT.msgElse), 'else 分支文案应提取')
+  assert(extractedJson.includes(TEXT.msgOuterElse), '外层 else 文案应提取')
   assert(output.includes("$t('app."), '应替换为 $t')
-  assert(!output.includes(msgElse), 'else 分支应完成替换')
-  assert(!output.includes(msgOuterElse), '外层 else 应完成替换')
+  assert(!output.includes(TEXT.msgElse), 'else 分支应完成替换')
+  assert(!output.includes(TEXT.msgOuterElse), '外层 else 应完成替换')
 }
 
 async function testPathLikeIgnore() {
   const src = `
     const route = '/aaa/bbb/SD/0/{0}'
     const rel = 'api/v1/users/{0}'
-    const label = '用户可见文案'
+    const label = '${TEXT.visibleLabel}'
   `
   const result = await extractJs(src, 'app')
   const extractedJson = JSON.stringify(result.extracted)
 
   assert(!extractedJson.includes('/aaa/bbb'), '绝对路径不应提取')
   assert(!extractedJson.includes('api/v1'), '相对路径不应提取')
-  assert(extractedJson.includes('用户可见文案'), '普通文案应提取')
+  assert(extractedJson.includes(TEXT.visibleLabel), '普通文案应提取')
 }
 
 async function testTemplateLiteralWithInterpolation() {
   const src = `
     const connectingSubtitle = computed(() =>
-      selectedNetwork.value ? \`连接至 \${selectedNetwork.value.ssid} 并检测\` : '',
+      selectedNetwork.value ? \`绑定至 \${selectedNetwork.value.ssid} 并完成检查\` : '',
     )
   `
   const result = await extractJs(src, 'app', 'ts')
   const extractedJson = JSON.stringify(result.extracted)
   const output = result.output
 
-  assert(extractedJson.includes('连接至 {0} 并检测'), '应提取为 {0} 占位符文案')
+  assert(extractedJson.includes(TEXT.tplI18n), '应提取为 {0} 占位符文案')
   assert(output.includes("$t('app."), '应使用 $t 替换')
   assert(output.includes('selectedNetwork.value.ssid'), '应保留插值表达式')
   assert(!result.warnings.some(w => w.message.includes('模板字符串')), '不应再产生手动处理警告')
@@ -133,16 +131,16 @@ async function testTemplateLiteralWithInterpolation() {
 async function testConsoleIgnoreInJsx() {
   const src = `
     export function Demo() {
-      const label = '页面标题'
-      console.info('调试信息')
+      const label = '${TEXT.pageTitle}'
+      console.info('${TEXT.debugInfo}')
       return <div>{label}</div>
     }
   `
   const result = await extractJsx(src, 'app')
   const extractedJson = JSON.stringify(result.extracted)
 
-  assert(extractedJson.includes('页面标题'), 'JSX 中文案应提取')
-  assert(!extractedJson.includes('调试信息'), 'console.info 参数不应提取')
+  assert(extractedJson.includes(TEXT.pageTitle), 'JSX 中文案应提取')
+  assert(!extractedJson.includes(TEXT.debugInfo), 'console.info 参数不应提取')
 }
 
 async function main() {

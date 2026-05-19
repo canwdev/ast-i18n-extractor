@@ -1,5 +1,5 @@
 import Editor, { DiffEditor } from '@monaco-editor/react'
-import { extractJs, extractJsx, extractVue, VueLangExtractor } from 'ast-i18n-extractor'
+import { extractJs, extractJsx, extractVue, findExistingI18nKeys, VueLangExtractor } from 'ast-i18n-extractor'
 import clsx from 'clsx'
 import { merge } from 'lodash-es'
 import { AlertCircle, CheckCircle, ChevronDown, ChevronRight, Files, FileText, FolderOpen, Save, Scan, X, XCircle } from 'lucide-react'
@@ -79,7 +79,8 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
   const [scanResults, setScanResults] = useState<ScanResult[]>([])
   const [isScanning, setIsScanning] = useState(false)
   const [extractedJson, setExtractedJson] = useState<string>('{}')
-  const [activeTab, setActiveTab] = useState<'results' | 'json'>('results')
+  const [activeTab, setActiveTab] = useState<'extracted' | 'json' | 'existed'>('extracted')
+  const [existedI18nKeys, setExistedI18nKeys] = useState<string[]>([])
   const [isSaving, setIsSaving] = useState(false)
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null)
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set())
@@ -146,12 +147,12 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
     const jsonChanged = hasJsonChanges()
     if (filesToSave.length === 0 && !jsonChanged) {
       setToast({ message: 'No changes to save', type: 'success' })
-      setTimeout(() => setToast(null), 3000)
+      setTimeout(setToast, 3000, null)
       return
     }
     if (filesToSave.length > 0 && !canSaveFiles) {
       setToast({ message: 'Cannot save: no file access', type: 'error' })
-      setTimeout(() => setToast(null), 3000)
+      setTimeout(setToast, 3000, null)
       return
     }
     setIsSaving(true)
@@ -174,7 +175,9 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
             for (let i = 0; i < parts.length - 1; i++) {
               currentDir = await currentDir.getDirectoryHandle(parts[i])
             }
-            const fileName = parts[parts.length - 1]
+            const fileName = parts.at(-1)
+            if (!fileName)
+              continue
             const fileHandle = await currentDir.getFileHandle(fileName)
             const writable = await fileHandle.createWritable()
             await writable.write(result.output)
@@ -213,11 +216,11 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
       if (jsonChanged)
         parts.push('JSON')
       setToast({ message: `Saved ${parts.join(' and ')}`, type: 'success' })
-      setTimeout(() => setToast(null), 3000)
+      setTimeout(setToast, 3000, null)
     }
     catch {
       setToast({ message: 'Failed to save changes', type: 'error' })
-      setTimeout(() => setToast(null), 3000)
+      setTimeout(setToast, 3000, null)
     }
     finally {
       setIsSaving(false)
@@ -230,6 +233,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
     vueLangEx: VueLangExtractor,
     results: ScanResult[],
     allExtracted: Record<string, string>,
+    allExistedKeys: Set<string>,
   ) => {
     const fileType = getFileType(filePath)
     if (!fileType)
@@ -238,6 +242,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
     try {
       const file = await fileHandle.getFile()
       const content = await file.text()
+      findExistingI18nKeys(content).forEach(key => allExistedKeys.add(key))
 
       let result
       if (fileType === 'vue') {
@@ -275,9 +280,14 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
     }
   }
 
-  const finalizeScan = (results: ScanResult[], allExtracted: Record<string, string>) => {
+  const finalizeScan = (
+    results: ScanResult[],
+    allExtracted: Record<string, string>,
+    allExistedKeys: Set<string>,
+  ) => {
     setScanResults(results)
     setExtractedJson(JSON.stringify(allExtracted, null, 2))
+    setExistedI18nKeys([...allExistedKeys].sort())
     setIsScanning(false)
   }
 
@@ -289,13 +299,14 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
     setSelectedFileHandles(handles)
     const results: ScanResult[] = []
     const allExtracted: Record<string, string> = {}
+    const allExistedKeys = new Set<string>()
     const vueLangEx = new VueLangExtractor(keyPrefix)
 
     for (const handle of handles) {
-      await processFile(handle, handle.name, vueLangEx, results, allExtracted)
+      await processFile(handle, handle.name, vueLangEx, results, allExtracted, allExistedKeys)
     }
 
-    finalizeScan(results, allExtracted)
+    finalizeScan(results, allExtracted, allExistedKeys)
   }
 
   const scanDirectory = async (directoryHandle: FileSystemDirectoryHandle) => {
@@ -306,6 +317,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
     setFilesLabel('')
     const results: ScanResult[] = []
     const allExtracted: Record<string, string> = {}
+    const allExistedKeys = new Set<string>()
 
     const vueLangEx = new VueLangExtractor(keyPrefix)
     const processEntry = async (entry: FileSystemHandle, path: string = '') => {
@@ -319,7 +331,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
         const fileEntry = entry as FileSystemFileHandle
         if (getFileType(entry.name) === null)
           return
-        await processFile(fileEntry, `${path}${entry.name}`, vueLangEx, results, allExtracted)
+        await processFile(fileEntry, `${path}${entry.name}`, vueLangEx, results, allExtracted, allExistedKeys)
       }
     }
 
@@ -327,7 +339,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
       await processEntry(entry)
     }
 
-    finalizeScan(results, allExtracted)
+    finalizeScan(results, allExtracted, allExistedKeys)
   }
 
   const hasScanSource = dirHandle !== null || selectedFileHandles.length > 0
@@ -339,6 +351,7 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
     setSelectedFileHandles([])
     setScanResults([])
     setExtractedJson('{}')
+    setExistedI18nKeys([])
     setExpandedItems(new Set())
   }
 
@@ -544,26 +557,15 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
         <div className="h-10 bg-gray-100 dark:bg-gray-800 flex items-center px-2 border-b border-gray-200 dark:border-gray-700 shrink-0">
           <div className="flex gap-1">
             <button
-              onClick={() => setActiveTab('results')}
+              onClick={() => setActiveTab('extracted')}
               className={clsx(
                 'px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-2',
-                activeTab === 'results'
+                activeTab === 'extracted'
                   ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-300 shadow-sm'
                   : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-300/50 dark:hover:bg-gray-600/50',
               )}
             >
-              Scan Results
-              {visibleResults.length > 0 && (
-                <span className={clsx(
-                  'text-[10px] px-1.5 rounded-full ml-1',
-                  activeTab === 'results'
-                    ? 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/50 dark:text-indigo-300'
-                    : 'bg-gray-300 text-gray-600 dark:bg-gray-600 dark:text-gray-300',
-                )}
-                >
-                  {visibleResults.length}
-                </span>
-              )}
+              {`Extracted Results (${visibleResults.length})`}
             </button>
             <button
               onClick={() => setActiveTab('json')}
@@ -576,12 +578,23 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
             >
               Extracted JSON
             </button>
+            <button
+              onClick={() => setActiveTab('existed')}
+              className={clsx(
+                'px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-2',
+                activeTab === 'existed'
+                  ? 'bg-white dark:bg-gray-600 text-indigo-600 dark:text-indigo-300 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-300/50 dark:hover:bg-gray-600/50',
+              )}
+            >
+              {`Existed Keys Before (${existedI18nKeys.length})`}
+            </button>
           </div>
         </div>
 
         <div className="flex-1 relative bg-white dark:bg-gray-900 overflow-y-auto">
           <div
-            className={clsx('h-full', activeTab !== 'results' && 'hidden')}
+            className={clsx('h-full', activeTab !== 'extracted' && 'hidden')}
           >
             <div className="p-4">
               {scanResults.length === 0
@@ -692,6 +705,30 @@ export function Scanner({ keyPrefix, tPrefix }: ScannerProps) {
                 scrollBeyondLastLine: false,
               }}
             />
+          </div>
+
+          <div
+            className={clsx('h-full', activeTab !== 'existed' && 'hidden')}
+          >
+            <div className="p-4 h-full overflow-y-auto">
+              {scanResults.length === 0
+                ? (
+                    <div className="text-gray-500 text-center mt-10">
+                      Select a folder or files to start scanning
+                    </div>
+                  )
+                : existedI18nKeys.length === 0
+                  ? (
+                      <div className="text-gray-500 text-center mt-10">
+                        No existing $t() or t() calls found
+                      </div>
+                    )
+                  : (
+                      <pre className="font-mono text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+                        {existedI18nKeys.join('\n')}
+                      </pre>
+                    )}
+            </div>
           </div>
         </div>
       </div>

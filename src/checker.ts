@@ -34,7 +34,7 @@ export function checkKeyNeedExtract(key: string) {
 }
 
 // 是代码：!isMobile, isCN, DemoVue2，SimpleCounter, DemoPage, isLoading
-// 不算代码： Apple，Bandwidth，Highest，Medium
+// 不算代码： Apple，Sampletext，Highest，Medium
 function isValidCodeName(str: string) {
   // !@#$%^&*()开头，一定是代码
   if (/^[!@#$%^&*()]+/.test(str)) {

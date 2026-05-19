@@ -1,7 +1,7 @@
 export type FileType = 'vue' | 'js' | 'ts' | 'jsx' | 'tsx'
 
 export const EDITOR_LANGUAGES: Record<FileType, string> = {
-  vue: 'vue',
+  vue: 'html',
   js: 'javascript',
   ts: 'typescript',
   jsx: 'javascript',

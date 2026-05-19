@@ -148,4 +148,5 @@ export async function extractJsx(src: string, keyPrefix: string, tPrefix?: strin
 }
 
 // export common functions
+export { findExistingI18nKeys } from './find-existing-i18n'
 export { formatI18nKey, valueNeedExtract, VueLangExtractor }

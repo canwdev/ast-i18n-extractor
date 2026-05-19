@@ -1,76 +1,31 @@
-import type { Monaco } from '@monaco-editor/react'
+import type { DiffOnMount, Monaco } from '@monaco-editor/react'
 import type { FileType } from '../utils/fileTypeUtils'
-import Editor from '@monaco-editor/react'
-import { extractJs, extractJsx, extractVue } from 'ast-i18n-extractor'
+import Editor, { DiffEditor } from '@monaco-editor/react'
+import { extractJs, extractJsx, extractVue, findExistingI18nKeys } from 'ast-i18n-extractor'
 import clsx from 'clsx'
-import { AlertTriangle, Code, FileJson } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { AlertTriangle, Code, FileJson, List } from 'lucide-react'
+import { useState } from 'react'
 import { useDebounce, useLocalStorage } from 'react-use'
+import {
+  DEFAULT_DEMO,
+  DEMO_EXAMPLES,
+  getDemoById,
+  getDemosByFileType,
+} from '../demo/examples'
+import { EDITOR_LANGUAGES } from '../utils/fileTypeUtils'
 
 export type { FileType } from '../utils/fileTypeUtils'
 
-const TEMPLATES: Record<FileType, string> = {
-  js: `// Write your code here
-const a = '你好世界'
-const b = "Hello World"
-`,
-  ts: `// Write your code here
-interface User {
-  name: string;
-  role: 'admin' | 'user';
-}
-
-const user: User = {
-  name: '张三',
-  role: 'admin'
-};
-
-const title = '用户管理';
-`,
-  jsx: `// Write your JSX here
-function App() {
-  return (
-    <div title="标题">
-      <h1>你好，世界！</h1>
-      <p>{'这是一个段落'}</p>
-    </div>
-  )
-}
-`,
-  tsx: `// Write your TSX here
-interface Props {
-  name: string;
-}
-
-function Welcome({ name }: Props) {
-  return (
-    <div className="welcome" aria-label="欢迎">
-      <h1>欢迎, {name}</h1>
-      <button onClick={() => alert('点击了')}>点击我</button>
-    </div>
-  )
-}
-`,
-  vue: `<template>
-  <div>{{ '你好' }}</div>
-</template>
-<script>
-export default {
-  data() {
-    return {
-      msg: '世界'
-    }
-  }
-}
-</script>`,
-}
-
-const EDITOR_LANGUAGES: Record<FileType, string> = {
-  js: 'javascript',
-  ts: 'typescript',
-  jsx: 'javascript',
-  tsx: 'typescript',
-  vue: 'html',
+function countExtractedLeaves(obj: unknown): number {
+  if (!obj || typeof obj !== 'object')
+    return 0
+  return Object.values(obj as Record<string, unknown>).reduce<number>((sum, v) => {
+    if (typeof v === 'string')
+      return sum + 1
+    if (v && typeof v === 'object')
+      return sum + countExtractedLeaves(v)
+    return sum
+  }, 0)
 }
 
 export interface CodeExtractorProps {
@@ -82,23 +37,71 @@ export function CodeExtractor({
   keyPrefix,
   tPrefix,
 }: CodeExtractorProps) {
-  const [fileType, setFileType] = useLocalStorage<FileType>('ast-i18n-file-type', 'js')
-  const [inputCode, setInputCode] = useLocalStorage<string>('ast-i18n-input-code', TEMPLATES.js)
+  const [selectedDemoId, setSelectedDemoId] = useLocalStorage<string>(
+    'ast-i18n-demo-id',
+    DEFAULT_DEMO?.id ?? 'demo-js',
+  )
+  const initialDemo = getDemoById(selectedDemoId ?? '') ?? DEFAULT_DEMO
+  const [fileType, setFileType] = useLocalStorage<FileType>(
+    'ast-i18n-file-type',
+    initialDemo?.fileType ?? 'js',
+  )
+  const [inputCode, setInputCode] = useLocalStorage<string>(
+    'ast-i18n-input-code',
+    initialDemo?.content ?? '',
+  )
   const [outputCode, setOutputCode] = useState<string>('')
   const [extractedMap, setExtractedMap] = useState<string>('{}')
   const [warnings, setWarnings] = useState<{ message: string, value: string, key?: string }[]>([])
-  const [activeTab, setActiveTab] = useState<'code' | 'json' | 'warnings'>('code')
+  const [activeTab, setActiveTab] = useState<'code' | 'json' | 'warnings' | 'existed'>('code')
+  const [existedI18nKeys, setExistedI18nKeys] = useState<string[]>([])
   const [_isProcessing, setIsProcessing] = useState(false)
 
-  useEffect(() => {
-    setInputCode(TEMPLATES[fileType ?? 'js'])
-  }, [fileType, setInputCode])
+  const extractedCount = (() => {
+    try {
+      return countExtractedLeaves(JSON.parse(extractedMap) as unknown)
+    }
+    catch {
+      return 0
+    }
+  })()
+
+  const applyDemo = (demoId: string) => {
+    const demo = getDemoById(demoId)
+    if (!demo)
+      return
+    setSelectedDemoId(demo.id)
+    setFileType(demo.fileType)
+    setInputCode(demo.content)
+  }
+
+  const handleFileTypeChange = (type: FileType) => {
+    setFileType(type)
+    const current = getDemoById(selectedDemoId ?? '')
+    if (current?.fileType === type)
+      return
+    const fallback = getDemosByFileType(type)[0]
+    if (fallback)
+      applyDemo(fallback.id)
+  }
 
   const TABS = [
     { id: 'code', label: 'Result Code', icon: Code },
-    { id: 'json', label: 'Extracted JSON', icon: FileJson },
-    { id: 'warnings', label: 'Warnings', icon: AlertTriangle },
+    { id: 'json', label: `Extracted JSON (${extractedCount})`, icon: FileJson },
+    { id: 'warnings', label: `Warnings (${warnings.length})`, icon: AlertTriangle },
+    { id: 'existed', label: `Existed Keys Before (${existedI18nKeys.length})`, icon: List },
   ] as const
+
+  const editorLanguage = EDITOR_LANGUAGES[fileType ?? 'js']
+  const modelPath = `file:///${getDemoById(selectedDemoId ?? '')?.fileName ?? `index.${fileType ?? 'js'}`}`
+
+  const handleDiffMount: DiffOnMount = (diffEditor) => {
+    diffEditor.getOriginalEditor().updateOptions({ readOnly: false })
+    diffEditor.getModifiedEditor().updateOptions({ readOnly: true })
+    diffEditor.getOriginalEditor().onDidChangeModelContent(() => {
+      setInputCode(diffEditor.getOriginalEditor().getValue())
+    })
+  }
 
   const handleExtract = async (code: string, type: FileType, prefix: string, tPrefixVal?: string) => {
     if (!code)
@@ -119,6 +122,7 @@ export function CodeExtractor({
       setOutputCode(result.output ?? '')
       setExtractedMap(JSON.stringify(result.extracted ?? {}, null, 2))
       setWarnings(result.warnings ?? [])
+      setExistedI18nKeys(findExistingI18nKeys(code))
     }
     catch (error) {
       console.error('Extraction failed:', error)
@@ -182,20 +186,59 @@ export function CodeExtractor({
     })
   }
 
+  const diffEditor = (
+    <DiffEditor
+      key={selectedDemoId}
+      height="100%"
+      language={editorLanguage}
+      theme="vs-dark"
+      original={inputCode ?? ''}
+      modified={outputCode}
+      originalModelPath={modelPath}
+      modifiedModelPath={`${modelPath}.out`}
+      beforeMount={handleEditorWillMount}
+      onMount={handleDiffMount}
+      options={{
+        renderSideBySide: true,
+        readOnly: false,
+        minimap: { enabled: false },
+        fontSize: 14,
+        scrollBeyondLastLine: false,
+        wordWrap: 'on',
+        folding: true,
+        lineNumbersMinChars: 3,
+      }}
+    />
+  )
+
+  const showSidePanel = activeTab !== 'code'
+
   return (
-    <div className="flex-1 flex overflow-hidden">
-      <div className="flex-1 flex flex-col border-r border-gray-200 dark:border-gray-800 min-w-0">
-        <div className="h-10 bg-gray-100 dark:bg-gray-800 flex items-center px-4 border-b border-gray-200 dark:border-gray-700 shrink-0 justify-between">
+    <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+      <div className="flex flex-row h-10 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 shrink-0">
+        <div className="flex-1 flex items-center px-2 justify-between min-w-0">
           <span className="text-sm font-medium flex items-center gap-2">
             <Code className="w-4 h-4" />
             {' '}
-            Input Source
+            Source vs Result
           </span>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap justify-end">
+            <label className="text-sm text-gray-500">Example:</label>
+            <select
+              value={selectedDemoId}
+              onChange={e => applyDemo(e.target.value)}
+              className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm max-w-[14rem] focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            >
+              {DEMO_EXAMPLES.map(demo => (
+                <option key={demo.id} value={demo.id}>
+                  {demo.label}
+                </option>
+              ))}
+            </select>
             <label className="text-sm text-gray-500">Type:</label>
             <select
               value={fileType}
-              onChange={e => setFileType(e.target.value as FileType)}
+              onChange={e => handleFileTypeChange(e.target.value as FileType)}
               className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
               <option value="js">JavaScript (.js)</option>
@@ -206,32 +249,18 @@ export function CodeExtractor({
             </select>
           </div>
         </div>
-        <div className="flex-1 relative">
-          <Editor
-            key={fileType}
-            height="100%"
-            language={EDITOR_LANGUAGES[fileType ?? 'js']}
-            theme="vs-dark"
-            defaultPath={`file:///index.${fileType ?? 'js'}`}
-            defaultValue={TEMPLATES[fileType ?? 'js']}
-            onChange={val => setInputCode(val ?? '')}
-            beforeMount={handleEditorWillMount}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-              scrollBeyondLastLine: false,
-              wordWrap: 'on',
-            }}
-          />
-        </div>
-      </div>
 
-      <div className="flex-1 flex flex-col min-w-0 ">
-        <div className="h-10 bg-gray-100 dark:bg-gray-800 flex items-center px-2 border-b border-gray-200 dark:border-gray-700 shrink-0">
+        <div
+          className="w-px shrink-0 bg-gray-200 dark:bg-gray-700"
+          aria-hidden
+        />
+
+        <div className="flex-1 flex items-center px-2 min-w-0">
           <div className="flex gap-1">
             {TABS.map(tab => (
               <button
                 key={tab.id}
+                type="button"
                 onClick={() => setActiveTab(tab.id)}
                 className={clsx(
                   'px-3 py-1 rounded-md text-xs font-medium transition-all flex items-center gap-2',
@@ -242,79 +271,88 @@ export function CodeExtractor({
               >
                 <tab.icon className="w-3.5 h-3.5" />
                 {tab.label}
-                {tab.id === 'warnings' && warnings.length > 0 && (
-                  <span className={clsx(
-                    'text-[10px] px-1.5 rounded-full ml-1',
-                    activeTab === tab.id
-                      ? 'bg-orange-100 text-orange-600 dark:bg-orange-900/50 dark:text-orange-300'
-                      : 'bg-gray-300 text-gray-600 dark:bg-gray-600 dark:text-gray-300',
-                  )}
-                  >
-                    {warnings.length}
-                  </span>
-                )}
               </button>
             ))}
           </div>
         </div>
-        <div className="flex-1 relative bg-white dark:bg-gray-900">
-          <div className={clsx('h-full w-full', activeTab !== 'code' && 'hidden')}>
-            <Editor
-              height="100%"
-              language={EDITOR_LANGUAGES[fileType ?? 'js']}
-              theme="vs-dark"
-              value={outputCode}
-              options={{
-                readOnly: true,
-                minimap: { enabled: false },
-                fontSize: 14,
-                scrollBeyondLastLine: false,
-                wordWrap: 'on',
-              }}
-            />
-          </div>
-          <div className={clsx('h-full w-full', activeTab !== 'json' && 'hidden')}>
-            <Editor
-              height="100%"
-              language="json"
-              theme="vs-dark"
-              value={extractedMap}
-              options={{
-                readOnly: true,
-                minimap: { enabled: false },
-                fontSize: 14,
-                scrollBeyondLastLine: false,
-              }}
-            />
-          </div>
-          <div className={clsx('h-full w-full', activeTab !== 'warnings' && 'hidden')}>
-            <div className="p-4 overflow-auto h-full">
-              {warnings.length === 0
-                ? (
-                    <div className="text-gray-500 text-center mt-10">No warnings</div>
-                  )
-                : (
-                    <ul className="space-y-3">
-                      {warnings.map(w => (
-                        <li key={`${w.message}-${w.value}`} className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md flex flex-col gap-1">
-                          <div className="font-medium text-orange-800 dark:text-orange-300">{w.message}</div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1 flex gap-2">
-                            Value:
-                            <code className="bg-white dark:bg-gray-800 px-1 rounded">{w.value}</code>
-                          </div>
-                          {w.key && w.key.length > 0 && (
-                            <div className="text-sm text-gray-600 dark:text-gray-400 flex gap-2">
-                              Key:
-                              <code className="bg-white dark:bg-gray-800 px-1 rounded">{w.key}</code>
-                            </div>
-                          )}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-            </div>
+      </div>
+
+      <div className="flex-1 flex min-h-0">
+        <div
+          className={clsx(
+            'flex flex-col min-h-0 min-w-0',
+            showSidePanel ? 'flex-1 border-r border-gray-200 dark:border-gray-800' : 'flex-1 w-full',
+          )}
+        >
+          <div className="flex-1 relative min-h-0">
+            {diffEditor}
           </div>
         </div>
+
+        {showSidePanel && (
+          <div className="flex-1 flex flex-col min-w-0 bg-white dark:bg-gray-900">
+            <div className={clsx('flex-1 min-h-0', activeTab !== 'json' && 'hidden')}>
+              <Editor
+                height="100%"
+                language="json"
+                theme="vs-dark"
+                value={extractedMap}
+                options={{
+                  readOnly: true,
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  scrollBeyondLastLine: false,
+                }}
+              />
+            </div>
+            <div className={clsx('flex-1 min-h-0 overflow-auto', activeTab !== 'warnings' && 'hidden')}>
+              <div className="p-4">
+                {warnings.length === 0
+                  ? (
+                      <div className="text-gray-500 text-center mt-10">No warnings</div>
+                    )
+                  : (
+                      <ul className="space-y-3">
+                        {warnings.map(w => (
+                          <li key={`${w.message}-${w.value}`} className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md flex flex-col gap-1">
+                            <div className="font-medium text-orange-800 dark:text-orange-300">{w.message}</div>
+                            <div className="text-sm text-gray-600 dark:text-gray-400 mt-1 flex gap-2">
+                              Value:
+                              <code className="bg-white dark:bg-gray-800 px-1 rounded">{w.value}</code>
+                            </div>
+                            {w.key && w.key.length > 0 && (
+                              <div className="text-sm text-gray-600 dark:text-gray-400 flex gap-2">
+                                Key:
+                                <code className="bg-white dark:bg-gray-800 px-1 rounded">{w.key}</code>
+                              </div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+              </div>
+            </div>
+            <div className={clsx('flex-1 min-h-0 overflow-auto', activeTab !== 'existed' && 'hidden')}>
+              <div className="p-4">
+                {!inputCode?.trim()
+                  ? (
+                      <div className="text-gray-500 text-center mt-10">Enter code to scan</div>
+                    )
+                  : existedI18nKeys.length === 0
+                    ? (
+                        <div className="text-gray-500 text-center mt-10">
+                          No existing $t() or t() calls found
+                        </div>
+                      )
+                    : (
+                        <pre className="font-mono text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">
+                          {existedI18nKeys.join('\n')}
+                        </pre>
+                      )}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

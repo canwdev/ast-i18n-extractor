@@ -11,7 +11,7 @@ export default {
     })
   },
   name: 'DemoVue2',
-  label2: 'Welcome to the XXX California',
+  label2: 'Welcome to the sample region',
   components: { SubComponent2, SubComponent1, TestComponent },
   data() {
     return {
@@ -19,10 +19,10 @@ export default {
       off: 10,
       item: {
         id: 1,
-        label: 'PDF',
-        label2: 'Welcome to the Hotel California',
+        label: 'FormatA',
+        label2: 'Welcome to the sample venue',
       },
-      testList: ['Facebook', 'Twitter', 'Instagram', 'TikTok', 'YouTube'],
+      testList: ['PlatformA', 'PlatformB', 'PlatformC', 'PlatformD', 'PlatformE'],
     }
   },
   computed: {
@@ -44,27 +44,27 @@ export default {
         [
           'Compression Option',
           'Video Quality',
-          'Bandwidth',
+          'SampleMetric',
           'Ideal Use Cases',
           'Network Requirement',
         ],
         [
-          'Full PDF',
+          'Full FormatA',
           'Highest',
           'High (Lossless)',
           'High-end studios, live broadcasts',
           'High-speed network',
         ],
-        ['PDF HX', 'Good', 'Lowest', 'Balanced', 'Remote production, education, corporate comms'],
-        ['PDF HX2', 'Good', 'Low', 'Enhanced efficiency', 'Reliable low-latency connections'],
-        ['PDF HX3', 'Great', 'Medium', 'Greater efficiency', 'Limited bandwidth scenarios'],
+        ['FormatA HX', 'Good', 'Lowest', 'Balanced', 'Use case description one'],
+        ['FormatA HX2', 'Good', 'Low', 'Feature note one', 'Use case description two'],
+        ['FormatA HX3', 'Great', 'Medium', 'Feature note two', 'Feature note three'],
       ]
     },
   },
   methods: {
     onLangChange(lang = 'Demo text') {
       alert(`Hello world!${lang}`)
-      const text = 'Plenty of room at the Hotel California'
+      const text = 'Plenty of room at the sample venue'
       const text2 = `You can find ${lang} here !!!`
       console.log(text)
     },

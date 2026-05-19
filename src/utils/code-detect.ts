@@ -1,6 +1,6 @@
 import { parse } from 'acorn'
 
-/** 是否包含典型 JS 运算符/语法（排除纯单词如 Bandwidth） */
+/** 是否包含典型 JS 运算符/语法（排除纯单词如 Sampletext） */
 const CODE_OPERATOR_PATTERN = /[+\-*/%|&<>!]=?|&&|\|\||[?()[\]]|=>/
 
 /** 是否像 JS 表达式（如 mOffset + 1、isSelected(w, true)） */

@@ -1,6 +1,6 @@
 import type { BlockStatement, IfStatement, Statement } from 'estree'
 
-type Node = { type: string, [key: string]: unknown }
+interface Node { type: string, [key: string]: unknown }
 
 function flattenStatement(stmt: Statement): Node[] {
   if (stmt.type === 'BlockStatement') {

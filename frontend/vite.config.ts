@@ -27,7 +27,6 @@ export default defineConfig({
   resolve: {
     alias: {
       'ast-i18n-extractor': path.resolve(__dirname, '../src/index.ts'),
-      // polyfill for some node modules if needed
     },
   },
   server: {
