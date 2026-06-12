@@ -32,5 +32,9 @@ export function formatI18nKey(val: number | string, replace: string = '_', limit
   }
   // 移除首尾的 "_"
   str = str.replace(new RegExp(`${replace}$|^${replace}`, 'g'), '')
+  // 检测str是否以数字开头
+  if (/^\d/.test(str)) {
+    str = `n${replace}${str}`
+  }
   return str
 }

@@ -50,6 +50,9 @@ export function CodeExtractor({
     'ast-i18n-input-code',
     initialDemo?.content ?? '',
   )
+  // Only push to DiffEditor `original` when switching demo — not on every keystroke.
+  // @monaco-editor/react calls model.setValue() when `original` changes, which resets cursor/undo.
+  const [editorOriginal, setEditorOriginal] = useState(() => inputCode ?? initialDemo?.content ?? '')
   const [outputCode, setOutputCode] = useState<string>('')
   const [extractedMap, setExtractedMap] = useState<string>('{}')
   const [warnings, setWarnings] = useState<{ message: string, value: string, key?: string }[]>([])
@@ -73,6 +76,7 @@ export function CodeExtractor({
     setSelectedDemoId(demo.id)
     setFileType(demo.fileType)
     setInputCode(demo.content)
+    setEditorOriginal(demo.content)
   }
 
   const handleFileTypeChange = (type: FileType) => {
@@ -96,10 +100,11 @@ export function CodeExtractor({
   const modelPath = `file:///${getDemoById(selectedDemoId ?? '')?.fileName ?? `index.${fileType ?? 'js'}`}`
 
   const handleDiffMount: DiffOnMount = (diffEditor) => {
-    diffEditor.getOriginalEditor().updateOptions({ readOnly: false })
-    diffEditor.getModifiedEditor().updateOptions({ readOnly: true })
     diffEditor.getOriginalEditor().onDidChangeModelContent(() => {
       setInputCode(diffEditor.getOriginalEditor().getValue())
+    })
+    diffEditor.getModifiedEditor().onDidChangeModelContent(() => {
+      setOutputCode(diffEditor.getModifiedEditor().getValue())
     })
   }
 
@@ -192,7 +197,7 @@ export function CodeExtractor({
       height="100%"
       language={editorLanguage}
       theme="vs-dark"
-      original={inputCode ?? ''}
+      original={editorOriginal}
       modified={outputCode}
       originalModelPath={modelPath}
       modifiedModelPath={`${modelPath}.out`}
@@ -200,6 +205,7 @@ export function CodeExtractor({
       onMount={handleDiffMount}
       options={{
         renderSideBySide: true,
+        originalEditable: true,
         readOnly: false,
         minimap: { enabled: false },
         fontSize: 14,
@@ -298,7 +304,7 @@ export function CodeExtractor({
                 theme="vs-dark"
                 value={extractedMap}
                 options={{
-                  readOnly: true,
+                  readOnly: false,
                   minimap: { enabled: false },
                   fontSize: 14,
                   scrollBeyondLastLine: false,
