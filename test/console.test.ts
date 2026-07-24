@@ -196,6 +196,8 @@ async function testVueSvgSubtreeIgnore() {
 async function testTechnicalStringIgnore() {
   const src = `
     const color = '#ff5500'
+    const gradient = 'linear-gradient(90deg, #D2FAFF 0%, #97C9EA 50%, #669BD7 100%)'
+    const radial = 'radial-gradient(circle, #fff 0%, #000 100%)'
     const ver = 'v1.2.3'
     const loc = 'zh-CN'
     const uuid = '550e8400-e29b-41d4-a716-446655440000'
@@ -209,6 +211,9 @@ async function testTechnicalStringIgnore() {
   const extractedJson = JSON.stringify(result.extracted)
 
   assert(!extractedJson.includes('#ff5500'), '颜色不应提取')
+  assert(!extractedJson.includes('linear-gradient'), 'linear-gradient 不应提取')
+  assert(!extractedJson.includes('radial-gradient'), 'radial-gradient 不应提取')
+  assert(!extractedJson.includes('#D2FAFF'), 'gradient 内颜色不应提取')
   assert(!extractedJson.includes('v1.2.3'), '版本号不应提取')
   assert(!extractedJson.includes('zh-CN'), 'locale 不应提取')
   assert(!extractedJson.includes('550e8400'), 'UUID 不应提取')

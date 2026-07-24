@@ -52,7 +52,8 @@ export function isCssLikeValue(value: string): boolean {
   const v = value.trim()
   if (/^#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})$/i.test(v))
     return true
-  if (/^(?:rgb|rgba|hsl|hsla|calc|var)\(/i.test(v))
+  // rgb/hsl/...、var/calc/url，以及 linear-gradient / radial-gradient 等
+  if (/^(?:(?:repeating-)?(?:linear|radial|conic)-gradient|rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color|calc|var|url|attr)\(/i.test(v))
     return true
   if (/^-?\d+(?:\.\d+)?(?:px|rem|em|%|vh|vw|vmin|vmax|ch|ex|pt|pc|in|cm|mm|s|ms)$/i.test(v))
     return true
