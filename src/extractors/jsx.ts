@@ -16,6 +16,7 @@ import {
   isLiteralNode,
   isReplaceCall,
   isSkippedCallArguments,
+  TS_WRAPPER_TYPES,
 } from '../utils/ast-nodes'
 import { isSkipSubtreeTag } from '../utils/code-detect'
 import { DEFAULT_LOG_OBJECTS, isConsoleCall } from '../utils/console-call'
@@ -73,6 +74,10 @@ export function extractJsxLogic(
 
   // 定义获取子节点的函数 acorn.Node
   const getChildNodes = (node: Node): (Node | null | undefined)[] => {
+    // TS 类型包裹节点（`as const` 等）只包裹不改语义，需继续深入其 expression
+    if (TS_WRAPPER_TYPES.has(node.type)) {
+      return [node.expression as Node]
+    }
     switch (node.type) {
       case 'Program':
       case 'BlockStatement':

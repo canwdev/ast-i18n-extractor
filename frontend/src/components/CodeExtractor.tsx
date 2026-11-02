@@ -12,6 +12,7 @@ import {
   getDemoById,
   getDemosByFileType,
 } from '../demo/examples'
+import { t } from '../i18n'
 import { EDITOR_LANGUAGES } from '../utils/fileTypeUtils'
 
 export interface CodeExtractorProps {
@@ -76,10 +77,10 @@ export function CodeExtractor({
   }
 
   const TABS = [
-    { id: 'code', label: 'Result Code', icon: Code },
-    { id: 'json', label: `Extracted JSON (${extractedCount})`, icon: FileJson },
-    { id: 'warnings', label: `Warnings (${warnings.length})`, icon: AlertTriangle },
-    { id: 'existed', label: `Existed Keys Before (${existedI18nKeys.length})`, icon: List },
+    { id: 'code', label: t('app.result_code'), icon: Code },
+    { id: 'json', label: t('app.extracted_json_0', [extractedCount]), icon: FileJson },
+    { id: 'warnings', label: t('app.warnings_0', [warnings.length]), icon: AlertTriangle },
+    { id: 'existed', label: t('app.existed_keys_before_0', [existedI18nKeys.length]), icon: List },
   ] as const
 
   const editorLanguage = EDITOR_LANGUAGES[fileType ?? 'js']
@@ -212,10 +213,10 @@ export function CodeExtractor({
           <span className="text-sm font-medium flex items-center gap-2">
             <Code className="w-4 h-4" />
             {' '}
-            Source vs Result
+            {t('app.source_vs_result')}
           </span>
           <div className="flex items-center gap-2 flex-wrap justify-end">
-            <label className="text-sm text-gray-500">Example:</label>
+            <label className="text-sm text-gray-500">{t('app.example')}</label>
             <select
               value={selectedDemoId}
               onChange={e => applyDemo(e.target.value)}
@@ -227,12 +228,13 @@ export function CodeExtractor({
                 </option>
               ))}
             </select>
-            <label className="text-sm text-gray-500">Type:</label>
+            <label className="text-sm text-gray-500">{t('app.type')}</label>
             <select
               value={fileType}
               onChange={e => handleFileTypeChange(e.target.value as FileType)}
               className="bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
+              {/* 文件类型标签是技术标识，不参与翻译（i18n:frontend 里用 --ignore-value 排除） */}
               <option value="js">JavaScript (.js)</option>
               <option value="ts">TypeScript (.ts)</option>
               <option value="jsx">React (.jsx)</option>
@@ -301,7 +303,7 @@ export function CodeExtractor({
               <div className="p-4">
                 {warnings.length === 0
                   ? (
-                      <div className="text-gray-500 text-center mt-10">No warnings</div>
+                      <div className="text-gray-500 text-center mt-10">{t('app.no_warnings')}</div>
                     )
                   : (
                       <ul className="space-y-3">
@@ -309,12 +311,12 @@ export function CodeExtractor({
                           <li key={`${w.message}-${w.value}`} className="p-3 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-md flex flex-col gap-1">
                             <div className="font-medium text-orange-800 dark:text-orange-300">{w.message}</div>
                             <div className="text-sm text-gray-600 dark:text-gray-400 mt-1 flex gap-2">
-                              Value:
+                              {t('app.value')}
                               <code className="bg-white dark:bg-gray-800 px-1 rounded">{w.value}</code>
                             </div>
                             {w.key && w.key.length > 0 && (
                               <div className="text-sm text-gray-600 dark:text-gray-400 flex gap-2">
-                                Key:
+                                {t('app.key')}
                                 <code className="bg-white dark:bg-gray-800 px-1 rounded">{w.key}</code>
                               </div>
                             )}
@@ -328,13 +330,11 @@ export function CodeExtractor({
               <div className="p-4">
                 {!inputCode?.trim()
                   ? (
-                      <div className="text-gray-500 text-center mt-10">Enter code to scan</div>
+                      <div className="text-gray-500 text-center mt-10">{t('app.enter_code_to_scan')}</div>
                     )
                   : existedI18nKeys.length === 0
                     ? (
-                        <div className="text-gray-500 text-center mt-10">
-                          No existing $t() or t() calls found
-                        </div>
+                        <div className="text-gray-500 text-center mt-10">{t('app.no_existing_t_or_t_calls_found')}</div>
                       )
                     : (
                         <pre className="font-mono text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">

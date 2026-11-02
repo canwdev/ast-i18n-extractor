@@ -16,6 +16,7 @@ import {
   isLiteralNode,
   isReplaceCall,
   isSkippedCallArguments,
+  TS_WRAPPER_TYPES,
 } from '../utils/ast-nodes'
 import { DEFAULT_LOG_OBJECTS, isConsoleCall } from '../utils/console-call'
 import { processTemplateLiteralWithExpressions } from '../utils/template-literal-i18n'
@@ -53,6 +54,11 @@ export function extractJsLogic(
 
   // 定义获取子节点的函数 acorn.Node
   const getChildNodes = (node: Node): (Node | null | undefined)[] => {
+    // TS 类型包裹节点（`as const` / `satisfies` / 非空断言 / 类型断言）只包裹不改语义，
+    // 内部表达式仍需继续遍历，否则 `[{ label: '…' }] as const` 会整棵漏抽
+    if (TS_WRAPPER_TYPES.has(node.type)) {
+      return [(node as unknown as { expression: Node }).expression]
+    }
     switch (node.type) {
       case 'Program':
       case 'BlockStatement':

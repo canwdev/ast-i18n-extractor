@@ -1,10 +1,16 @@
+import type {
+  FileSystemDirectoryHandle,
+  FileSystemFileHandle,
+  FileSystemHandle,
+} from '../types/file-system-access'
 import Editor, { DiffEditor } from '@monaco-editor/react'
 import { extractJs, extractJsx, extractVue, findExistingI18nKeys, getFileType, parseIgnorePatterns, shouldIgnoreFile, VueLangExtractor } from 'ast-i18n-extractor'
 import clsx from 'clsx'
 import { merge } from 'lodash-es'
-import { AlertCircle, CheckCircle, ChevronDown, ChevronRight, Files, FileText, FolderOpen, Save, Scan, X, XCircle } from 'lucide-react'
 
+import { AlertCircle, CheckCircle, ChevronDown, ChevronRight, Files, FileText, FolderOpen, Save, Scan, X, XCircle } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { t } from '../i18n'
 import { getLanguageFromPath } from '../utils/fileTypeUtils'
 
 interface ScanResult {
@@ -32,42 +38,6 @@ export interface ScannerProps {
   tPrefix: string
   /** 逗号/换行分隔的正则，匹配则跳过扫描 */
   ignorePatterns?: string
-}
-
-interface FileSystemHandle {
-  kind: 'file' | 'directory'
-  name: string
-}
-
-interface FileSystemFileHandle extends FileSystemHandle {
-  kind: 'file'
-  getFile: () => Promise<File>
-  createWritable: () => Promise<FileSystemWritableFileStream>
-}
-
-interface FileSystemDirectoryHandle extends FileSystemHandle {
-  kind: 'directory'
-  values: () => AsyncIterable<FileSystemHandle>
-  getDirectoryHandle: (name: string) => Promise<FileSystemDirectoryHandle>
-  getFileHandle: (name: string) => Promise<FileSystemFileHandle>
-}
-
-declare global {
-  interface Window {
-    showSaveFilePicker?: (options: {
-      suggestedName?: string
-      types?: readonly { description: string, accept: Readonly<Record<string, readonly string[]>> }[]
-    }) => Promise<FileSystemFileHandle>
-    showDirectoryPicker?: () => Promise<FileSystemDirectoryHandle>
-    showOpenFilePicker?: (options: {
-      types?: readonly { description: string, accept: Readonly<Record<string, readonly string[]>> }[]
-      multiple?: boolean
-    }) => Promise<FileSystemFileHandle[]>
-  }
-  interface FileSystemWritableFileStream {
-    write: (data: FileSystemWriteChunkType) => Promise<void>
-    close: () => Promise<void>
-  }
 }
 
 export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProps) {
@@ -98,7 +68,7 @@ export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProp
     try {
       const [fileHandle] = await window.showOpenFilePicker({
         types: [{
-          description: 'JSON File',
+          description: t('app.json_file'),
           accept: { 'application/json': ['.json'] },
         }],
         multiple: false,
@@ -158,12 +128,12 @@ export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProp
     const filesToSave = changedResults
     const jsonChanged = hasJsonChanges()
     if (filesToSave.length === 0 && !jsonChanged) {
-      setToast({ message: 'No changes to save', type: 'success' })
+      setToast({ message: t('app.no_changes_to_save'), type: 'success' })
       setTimeout(setToast, 3000, null)
       return
     }
     if (filesToSave.length > 0 && !canSaveFiles) {
-      setToast({ message: 'Cannot save: no file access', type: 'error' })
+      setToast({ message: t('app.cannot_save_no_file_access'), type: 'error' })
       setTimeout(setToast, 3000, null)
       return
     }
@@ -224,14 +194,14 @@ export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProp
       }
       const parts: string[] = []
       if (savedFileCount > 0)
-        parts.push(`${savedFileCount} file(s)`)
+        parts.push(t('app.saved_file_count', [savedFileCount]))
       if (jsonChanged)
         parts.push('JSON')
-      setToast({ message: `Saved ${parts.join(' and ')}`, type: 'success' })
+      setToast({ message: t('app.saved_0', [parts.join(t('app.list_separator'))]), type: 'success' })
       setTimeout(setToast, 3000, null)
     }
     catch {
-      setToast({ message: 'Failed to save changes', type: 'error' })
+      setToast({ message: t('app.failed_to_save_changes'), type: 'error' })
       setTimeout(setToast, 3000, null)
     }
     finally {
@@ -284,7 +254,7 @@ export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProp
       results.push({
         filePath,
         status: 'error',
-        error: err instanceof Error ? err.message : 'Unknown error',
+        error: err instanceof Error ? err.message : t('app.unknown_error'),
         warnings: [],
         extracted: {},
         fileHandle,
@@ -402,7 +372,7 @@ export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProp
       )
       if (supported.length === 0) {
         setToast({
-          message: handles.length > 0 ? '所选文件均被 Ignore 规则跳过或不支持' : '未选择文件',
+          message: handles.length > 0 ? t('app.ignored_files_unsupported') : t('app.no_files_selected'),
           type: 'error',
         })
         setTimeout(setToast, 3000, null)
@@ -459,8 +429,7 @@ export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProp
       <div className="p-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 shrink-0">
         {invalidIgnorePatterns.length > 0 && (
           <p className="text-xs text-orange-600 dark:text-orange-400 mb-2">
-            无效 Ignore 正则:
-            {' '}
+            {t('app.invalid_ignore_regex')}
             {invalidIgnorePatterns.join(', ')}
           </p>
         )}
@@ -468,38 +437,36 @@ export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProp
           <button
             onClick={selectFolder}
             disabled={isScanning || hasScanSource}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded-md text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <FolderOpen className="w-4 h-4" />
+            <FolderOpen className="w-3.5 h-3.5" />
             {folderPath
               ? (
                   <>
-                    Scan:
-                    {' '}
+                    {t('app.scan')}
                     {folderPath}
                   </>
                 )
               : (
-                  'Select Folder to Scan'
+                  t('app.select_folder_to_scan')
                 )}
           </button>
 
           <button
             onClick={() => { void selectFiles() }}
             disabled={isScanning || hasScanSource}
-            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 rounded-md text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Files className="w-4 h-4" />
+            <Files className="w-3.5 h-3.5" />
             {filesLabel
               ? (
                   <>
-                    Scan:
-                    {' '}
+                    {t('app.scan')}
                     {filesLabel}
                   </>
                 )
               : (
-                  'Select Files to Scan'
+                  t('app.select_files_to_scan')
                 )}
           </button>
 
@@ -507,18 +474,18 @@ export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProp
             <button
               onClick={closeScanSource}
               disabled={isScanning}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <X className="w-4 h-4" />
-              {dirHandle ? 'Close Folder' : 'Close Files'}
+              <X className="w-3.5 h-3.5" />
+              {dirHandle ? t('app.close_folder') : t('app.close_files')}
             </button>
           )}
 
           <button
             onClick={() => { void selectJsonFile() }}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 rounded-md text-xs font-medium transition-colors"
           >
-            <FileText className="w-4 h-4" />
+            <FileText className="w-3.5 h-3.5" />
             {jsonFilePath
               ? (
                   <>
@@ -528,7 +495,7 @@ export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProp
                   </>
                 )
               : (
-                  'Open JSON File'
+                  t('app.open_json_file')
                 )}
           </button>
 
@@ -536,26 +503,26 @@ export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProp
             <button
               onClick={() => { void rescan() }}
               disabled={isScanning}
-              className="flex items-center gap-2 px-4 py-2 bg-yellow-600 hover:bg-yellow-700 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-3 py-1.5 bg-yellow-600 hover:bg-yellow-700 rounded-md text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Scan className="w-4 h-4" />
-              Rescan
+              <Scan className="w-3.5 h-3.5" />
+              {t('app.rescan')}
             </button>
           )}
 
           <button
             onClick={() => { void saveAllChanges() }}
             disabled={isScanning || isSaving || scanResults.length === 0 || (changedResults.length === 0 && !hasJsonChanges()) || (changedResults.length > 0 && !canSaveFiles)}
-            className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 rounded-md text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-3 py-1.5 bg-green-600 hover:bg-green-700 rounded-md text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <Save className="w-4 h-4" />
-            {isSaving ? 'Saving...' : 'Save All Changes'}
+            <Save className="w-3.5 h-3.5" />
+            {isSaving ? t('app.saving') : t('app.save_all_changes')}
           </button>
 
           {isScanning && (
-            <span className="flex items-center gap-2 text-sm text-indigo-500">
+            <span className="flex items-center gap-2 text-xs text-indigo-500">
               <Scan className="w-4 h-4 animate-spin" />
-              Scanning...
+              {t('app.scanning')}
             </span>
           )}
         </div>
@@ -574,7 +541,7 @@ export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProp
                   : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-300/50 dark:hover:bg-gray-600/50',
               )}
             >
-              {`Extracted Results (${visibleResults.length})`}
+              {t('app.extracted_results_0', [visibleResults.length])}
             </button>
             <button
               onClick={() => setActiveTab('json')}
@@ -585,7 +552,7 @@ export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProp
                   : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-300/50 dark:hover:bg-gray-600/50',
               )}
             >
-              Extracted JSON
+              {t('app.extracted_json')}
             </button>
             <button
               onClick={() => setActiveTab('existed')}
@@ -596,7 +563,7 @@ export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProp
                   : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-300/50 dark:hover:bg-gray-600/50',
               )}
             >
-              {`Existed Keys Before (${existedI18nKeys.length})`}
+              {t('app.existed_keys_before_0', [existedI18nKeys.length])}
             </button>
           </div>
 
@@ -631,15 +598,11 @@ export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProp
             <div className="p-4">
               {scanResults.length === 0
                 ? (
-                    <div className="text-gray-500 text-center mt-10">
-                      Select a folder or files to start scanning
-                    </div>
+                    <div className="text-gray-500 text-center mt-10">{t('app.select_a_folder_or_files_to_start')}</div>
                   )
                 : visibleResults.length === 0
                   ? (
-                      <div className="text-gray-500 text-center mt-10">
-                        No extractable content found
-                      </div>
+                      <div className="text-gray-500 text-center mt-10">{t('app.no_extractable_content_found')}</div>
                     )
                   : (
                       <ul className="space-y-2">
@@ -745,15 +708,11 @@ export function Scanner({ keyPrefix, tPrefix, ignorePatterns = '' }: ScannerProp
             <div className="p-4 h-full overflow-y-auto">
               {scanResults.length === 0
                 ? (
-                    <div className="text-gray-500 text-center mt-10">
-                      Select a folder or files to start scanning
-                    </div>
+                    <div className="text-gray-500 text-center mt-10">{t('app.select_a_folder_or_files_to_start')}</div>
                   )
                 : existedI18nKeys.length === 0
                   ? (
-                      <div className="text-gray-500 text-center mt-10">
-                        No existing $t() or t() calls found
-                      </div>
+                      <div className="text-gray-500 text-center mt-10">{t('app.no_existing_t_or_t_calls_found')}</div>
                     )
                   : (
                       <pre className="font-mono text-sm text-gray-800 dark:text-gray-200 whitespace-pre-wrap leading-relaxed">

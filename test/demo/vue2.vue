@@ -1,231 +1,73 @@
 <template>
-  <div class="demo-vue-2">
-    <div class="text-h2">{{ 'Demo Vue2 Component Long Long Long Long Text 01' }}</div>
-    <div class="text-h2">{{ 'Demo Vue2 Component Long Long Long Long Text 02' }}</div>
-    <div class="text-h2">{{ `On Sale, ${this.off} OFF!` }}</div>
-    <div class="text-h2" v-html="`Cool HTML`"></div>
-    <div class="text-h2" v-html="title"></div>
-    <div class="text-h1">{{ title || $t('navbar.accessories') }}</div>
-    <a
-      v-if="item.moreLink"
-      :href="item.moreLink"
-      rel="nofollow"
-      :data-id="`compare-more-${item.id}`"
-      :data-href="item.moreLink"
-      :phone="`iPhone`"
-      :mac="`iMac`"
-      :oses="['macOS', 'Windows', `Linux`, 'Android OS']"
-      :data-format="`FormatA`"
-      target="_blank"
-      class="compare-more"
-    >
-      Learn More
-    </a>
-    <div class="container w1200 padding-120">
-      <div class="dialog-lr-layout _reversed">
-        <div
-          class="lr-left"
-          data-test="data- will not be extracted"
-          lyric1="You may say I'm a dreamer, but I'm not the only one."
-          :lyric2="'Hello, it\'s me. I was wondering if after all these years you\'d like to meet.'"
-          :lyric3="`I'm a Barbie girl, in a Barbie world. Life in plastic, it's fantastic.`"
-        >
-          <div class="lr-title text-h1">Wake me up when September ends.</div>
-          <div class="lr-desc ta-text">
-            "Just a small town girl, livin' in a lonely world. She took the midnight train goin'
-            anywhere." - Journey, Don't Stop Believin' "I've got sunshine on a cloudy day. When it's
-            cold outside, I've got the month of May." - The Temptations, My Girl
-          </div>
-        </div>
-        <input placeholder="Search Text..." />
-        <TestComponent
-          :class="{'item-text-2-cn': isCN}"
-          :title="`I want to break free, I want to break free from your lies.`"
-          :desc="`Head and shoulders, knees and toes. Children's song, Head, Shoulders, Knees and Toes`"
-          class="lr-right"
-          :box-images="[
-            {
-              ratio: 0.56,
-              style: 'flex:1;',
-              videoData: {
-                src: 'https://picsum.photos/300/400',
-                poster: 'https://picsum.photos/300/400',
-              },
-              label: 'Ice, ice, baby.',
-              labelClass: 'active',
-            },
-            {
-              ratio: 0.56,
-              style: 'flex:1;',
-              videoData: {
-                src: 'https://picsum.photos/300/400',
-                poster: 'https://picsum.photos/300/400',
-              },
-              label: 'Vanilla Ice, Ice Ice Baby',
-            },
-          ]"
-        >
-          <!-- Test For Comment -->
-          <AutoRatioBox v-lazy:background-image="`https://picsum.photos/300/400`" :ratio="1" />
-        </TestComponent>
-      </div>
-    </div>
+  <section class="billing-card" data-testid="billing-card">
+    <h2 :title="cardTitle">{{ cardTitle }}</h2>
 
-    <div class="container w1200 padding-120">
-      <div class="videos-wrapper flex-rows">
-        <div class="video-item">
-          <SubComponent2
-            :autoplay="false"
-            is-passive
-            :ratio="0.56"
-            :video-data="{
-              src: 'https://picsum.photos/400/200',
-              poster: 'https://picsum.photos/300/400',
-            }"
-          />
-          <div class="dialog-tip-item">Like a rolling stone.</div>
-        </div>
-        <div class="video-item">
-          <SubComponent2
-            :autoplay="false"
-            is-passive
-            :ratio="0.56"
-            :video-data="{
-              demo_text:
-                'Yesterday, all my troubles seemed so far away. Now it looks as though they\'re here to stay.',
-              src: 'https://picsum.photos/300/200',
-              poster: 'https://picsum.photos/200/300',
-            }"
-          />
-          <div class="dialog-tip-item">Bob Dylan, Like a Rolling Stone</div>
-        </div>
-      </div>
-    </div>
+    <!-- v-if / v-else-if / v-else 三个分支的文案都会被抽取 -->
+    <p v-if="loading">Loading your invoices...</p>
+    <p v-else-if="error">{{ 'We could not load your invoices' }}</p>
+    <p v-else>Your invoices are up to date.</p>
 
-    <SubComponent1
-      class="padding-120"
-      title-class="text-h2"
-      :title="`I’ve talked to nearly 30,000 people on my show`"
-      :desc="`And in the words of Maya Angelou, ‘People will forget what you said, people will forget what you did, but people will never forget how you made them feel.’ So, the real work of your life is to figure out what that is that you're supposed to be doing. And the way you do that is by asking yourself the right questions. And I’ve told you a couple of them.`"
-    >
-      <template #box>
-        <div class="format-feats">
-          <div class="row-header">
-            <div v-for="(col, index) in demoFeats[0]" :key="index" class="col-item">{{ col }}</div>
-          </div>
-          <div
-            v-for="(row, index) in demoFeats.slice(1, demoFeats.length)"
-            :key="index"
-            class="row-content"
-          >
-            <div v-for="(col, colIndex) in row" :key="colIndex" class="col-item">
-              {{ col }}
-            </div>
-          </div>
-        </div>
-      </template>
-    </SubComponent1>
-  </div>
+    <!-- 静态属性与 :attr="'字面量'" 都会抽取；href / data-* 不会 -->
+    <input :placeholder="'Filter invoices'" />
+    <a :href="helpLink" target="_blank">Open help center</a>
+
+    <!-- SVG path 属于绘制数据，不会被当作文案 -->
+    <svg class="icon" viewBox="0 0 16 16">
+      <path d="M4 9l3 3 6-6" />
+    </svg>
+
+    <ul>
+      <li v-for="row in rows" :key="row.id">{{ row.label }}</li>
+    </ul>
+
+    <button type="button" @click="retry">{{ retryLabel }}</button>
+  </section>
 </template>
 
 <script>
-import TestComponent from '~/components/TestComponent.vue'
-import SubComponent1 from '~/components/SubComponent1.vue'
-import SubComponent2 from '~/components/SubComponent2.vue'
-
 export default {
-  head() {
-    return generateHead.call(this, {
-      offText: `Sale! ${this.off} OFF! ${this.isCN} ENDS TODAY! ${this.item}`,
-      title: `Head Text is Here! | ${this.$t('title')}`,
-      description: this.isEN
-        ? `Is this the real life? Is this just fantasy? (Vue2)`
-        : this.$t('page.desc'),
-      ogDesc: 'Such a lovely place (Such a lovely place)',
-      ogImage: `Such AAA lovely place (Such a lovely place)`,
-    })
-  },
-  name: 'DemoVue2',
-  label2: 'Welcome to the sample region',
-  components: {SubComponent2, SubComponent1, TestComponent},
+  name: 'BillingCard',
   data() {
     return {
-      isCN: false,
-      off: 10,
-      item: {
-        id: 1,
-        label: 'FormatA',
-        label2: 'Welcome to the sample venue',
-      },
-      testList: ['PlatformA', 'PlatformB', 'PlatformC', 'PlatformD', 'PlatformE'],
+      loading: false,
+      error: null,
+      helpLink: '/help',
+      // 末尾数字不同的文案会合并为 `Invoice {0}`
+      rows: [
+        { id: 1, label: 'Invoice 1' },
+        { id: 2, label: 'Invoice 2' },
+        { id: 3, label: 'Invoice 3' },
+      ],
     }
   },
   computed: {
-    title() {
-      return `It's close to midnight, and something evil's lurking in the dark`
+    cardTitle() {
+      return 'Billing overview'
     },
-    ndList() {
-      return [
-        {label: 'Tiny Dancer in my hand, pirouetting for the man.', class: 'main'},
-        {label: 'Same Text', class: 'sub'},
-        {label: 'Same Text', class: 'sub'},
-        {label: 'Same Text', class: 'sub'},
-        {label: 'Same Text', class: 'sub'},
-        {label: '', class: 'sub'},
-      ]
+    retryLabel() {
+      return 'Retry loading'
     },
-    demoFeats() {
-      return [
-        [
-          'Compression Option',
-          'Video Quality',
-          'SampleMetric',
-          'Ideal Use Cases',
-          'Network Requirement',
-        ],
-        [
-          'Full FormatA',
-          'Highest',
-          'High (Lossless)',
-          'High-end studios, live broadcasts',
-          'High-speed network',
-        ],
-        ['FormatA Basic', 'Good', 'Lowest', 'Balanced', 'Use case description one'],
-        ['FormatA Standard', 'Good', 'Low', 'Feature note one', 'Use case description two'],
-        ['FormatA Advanced', 'Great', 'Medium', 'Feature note two', 'Feature note three'],
-      ]
+    // 已有 $t 调用会被识别为「已有 Key」，不重复生成
+    sectionTitle() {
+      return this.$t('billing.section_title')
     },
   },
   methods: {
-    onLangChange(lang = 'Demo text') {
-      alert('Hello world!' + lang)
-      const text = 'Plenty of room at the sample venue'
-      const text2 = `You can find ${lang} here !!!`
-      console.log(text)
+    retry() {
+      this.$message.error('Retry is not available yet')
+      // console 参数属于调试信息，不抽取
+      console.log('debug only, console arguments are skipped')
+      alert(`Retried ${this.rows.length} times`)
     },
-    checkValidate() {
-      for (const item of this.testList) {
-        if (!item.type) {
-          this.$message.error('Please select social media type')
-          return false
-        }
-        if (!item.url) {
-          this.$message.error('Please input social media link')
-          return false
-        }
-        if (!isOutLink(item.url)) {
-          this.$message.error('Please input a valid link')
-          return false
-        }
-      }
-      return true
+    formatAmount(amount) {
+      return `Amount due is ${amount}`
     },
   },
 }
 </script>
 
-<style lang="scss" scoped>
-.demo-vue-2 {
-  color: red;
+<style scoped>
+.billing-card {
+  padding: 16px;
 }
 </style>

@@ -1,89 +1,50 @@
+// JS 示例：Vue 2 选项式写法，覆盖对象属性、模板字符串、数组、已有 $t 复用、代码位置跳过
+const COMPARE_CONFIG = {
+  name: 'ComparePanel',
+  id: 'compare-panel',
+  class: 'compare-root',
+}
+
 export default {
-  head() {
-    return generateHead.call(this, {
-      offText: `Sale! ${this.off} OFF! ${this.isCN} ENDS TODAY! ${this.item}`,
-      title: `Head Text is Here! | ${this.$t('title')}`,
-      description: this.isEN
-        ? `Is this the real life? Is this just fantasy? (JS)`
-        : this.$t('page.desc'),
-      ogDesc: 'Such a lovely place (Such a lovely place)',
-      ogImage: `Such AAA lovely place (Such a lovely place)`,
-    })
-  },
-  name: 'DemoVue2',
-  label2: 'Welcome to the sample region',
-  components: { SubComponent2, SubComponent1, TestComponent },
+  name: 'ComparePanel',
   data() {
     return {
       isCN: false,
-      off: 10,
-      item: {
-        id: 1,
-        label: 'FormatA',
-        label2: 'Welcome to the sample venue',
-      },
-      testList: ['PlatformA', 'PlatformB', 'PlatformC', 'PlatformD', 'PlatformE'],
+      rows: [
+        { label: 'Compression Option', value: 'Full' },
+        { label: 'Video Quality', value: 'Highest' },
+      ],
     }
   },
   computed: {
-    title() {
-      return `It's close to midnight, and something evil's lurking in the dark`
+    // 含插值的模板字符串会转成 `{0}` 占位符并自动带参数
+    pageTitle() {
+      return `Compare ${this.rows.length} formats`
     },
-    ndList() {
-      return [
-        { label: 'Tiny Dancer in my hand, pirouetting for the man.', class: 'main' },
-        { label: 'Same Text', class: 'sub' },
-        { label: 'Same Text', class: 'sub' },
-        { label: 'Same Text', class: 'sub' },
-        { label: 'Same Text', class: 'sub' },
-        { label: '', class: 'sub' },
-      ]
+    heroText() {
+      return 'Choose the right format for your workflow'
     },
-    demoFeats() {
-      return [
-        [
-          'Compression Option',
-          'Video Quality',
-          'SampleMetric',
-          'Ideal Use Cases',
-          'Network Requirement',
-        ],
-        [
-          'Full FormatA',
-          'Highest',
-          'High (Lossless)',
-          'High-end studios, live broadcasts',
-          'High-speed network',
-        ],
-        ['FormatA Basic', 'Good', 'Lowest', 'Balanced', 'Use case description one'],
-        ['FormatA Standard', 'Good', 'Low', 'Feature note one', 'Use case description two'],
-        ['FormatA Advanced', 'Great', 'Medium', 'Feature note two', 'Feature note three'],
-      ]
+    // 已有 $t 调用会被识别，不重复生成 key
+    sectionTitle() {
+      return this.$t('compare.section_title')
     },
   },
   methods: {
-    onLangChange(lang = 'Demo text') {
-      alert(`Hello world!${lang}`)
-      const text = 'Plenty of room at the sample venue'
-      const text2 = `You can find ${lang} here !!!`
-      console.log(text)
+    retry(count = 1) {
+      this.$message.error('Please select a format first')
+      alert(`Retry attempt ${count}`)
+      // console 参数属于调试信息，不抽取
+      console.log('debug only, console arguments are skipped')
+      return this.rows.push({ label: 'Bitrate', value: 'Auto' })
     },
-    checkValidate() {
-      for (const item of this.testList) {
-        if (!item.type) {
-          this.$message.error('Please select social media type')
-          return false
-        }
-        if (!item.url) {
-          this.$message.error('Please input social media link')
-          return false
-        }
-        if (!isOutLink(item.url)) {
-          this.$message.error('Please input a valid link')
-          return false
-        }
+    normalize(text) {
+      // String.replace 的替换串不抽取
+      return text.replace(' ', '-')
+    },
+    save() {
+      if (!this.rows.length) {
+        throw new Error('Nothing to compare')
       }
-      return true
     },
   },
 }

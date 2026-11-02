@@ -301,8 +301,32 @@ async function testConsoleIgnoreInJsx() {
   assert(!extractedJson.includes(TEXT.debugInfo), 'console.info 参数不应提取')
 }
 
+/** `as const` / 类型断言包裹的表达式仍需遍历，否则常量表里的文案整体漏抽 */
+async function testTypeWrapperSubtree() {
+  const src = `
+    const views = [{ label: '${TEXT.asConstLabel}' }] as const
+    const asserted = '${TEXT.asExpressionText}' as string
+    const plain = '${TEXT.visibleLabel}'
+  `
+  const jsResult = await extractJs(src, 'app')
+  const jsJson = JSON.stringify(jsResult.extracted)
+  assert(jsJson.includes(TEXT.asConstLabel), 'as const 数组内的文案应提取')
+  assert(jsJson.includes(TEXT.asExpressionText), '类型断言内的文案应提取')
+  assert(jsJson.includes(TEXT.visibleLabel), '普通字面量文案应提取')
+
+  const jsxSrc = `
+    const tabs = [{ label: '${TEXT.asConstLabel}' }] as const
+    export function X() {
+      return <div>{tabs.map(tab => <span key={tab.label}>{tab.label}</span>)}</div>
+    }
+  `
+  const jsxResult = await extractJsx(jsxSrc, 'app')
+  assert(JSON.stringify(jsxResult.extracted).includes(TEXT.asConstLabel), 'JSX 场景下 as const 数组内文案应提取')
+}
+
 async function main() {
   await testConsoleIgnoreInJs()
+  await testTypeWrapperSubtree()
   await testBracketPropIgnore()
   await testCodeExpressionAndSvgIgnore()
   await testVueTemplateCodeIgnore()

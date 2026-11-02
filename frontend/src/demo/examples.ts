@@ -1,29 +1,13 @@
 import type { FileType } from 'ast-i18n-extractor'
 import { getFileType } from 'ast-i18n-extractor'
+// 示例清单与测试共用一份定义：test/demo/ 下的文件既是界面示例，也是测试夹具
+import { DEMO_CASES } from '../../../test/demo-manifest'
 
 const demoSources = import.meta.glob('../../../test/demo/*', {
   query: '?raw',
   import: 'default',
   eager: true,
 }) as Record<string, string>
-
-const DEMO_FILE_ORDER = [
-  'demo-js.js',
-  'demo-ts.ts',
-  'demo-jsx.jsx',
-  'demo-tsx.tsx',
-  'vue2.vue',
-  'vue3.vue',
-] as const
-
-const DEMO_LABELS: Record<string, string> = {
-  'demo-js.js': 'JavaScript — demo-js.js',
-  'demo-ts.ts': 'TypeScript — demo-ts.ts',
-  'demo-jsx.jsx': 'JSX — demo-jsx.jsx',
-  'demo-tsx.tsx': 'TSX — demo-tsx.tsx',
-  'vue2.vue': 'Vue 2 — vue2.vue',
-  'vue3.vue': 'Vue 3 — vue3.vue',
-}
 
 export interface DemoExample {
   id: string
@@ -39,30 +23,26 @@ function pathToFileName(path: string): string {
 }
 
 function buildExamples(): DemoExample[] {
-  const examples: DemoExample[] = []
+  const contentByFileName = new Map<string, string>()
+  for (const [path, content] of Object.entries(demoSources))
+    contentByFileName.set(pathToFileName(path), content)
 
-  for (const [path, content] of Object.entries(demoSources)) {
-    const fileName = pathToFileName(path)
-    const fileType = getFileType(fileName)
-    if (!fileType)
+  const examples: DemoExample[] = []
+  for (const demo of DEMO_CASES) {
+    const content = contentByFileName.get(demo.fileName)
+    const fileType = getFileType(demo.fileName)
+    if (content === undefined || !fileType)
       continue
 
     examples.push({
-      id: fileName.replace(/\.[^.]+$/, ''),
-      label: DEMO_LABELS[fileName] ?? fileName,
-      fileName,
+      id: demo.fileName.replace(/\.[^.]+$/, ''),
+      label: demo.label,
+      fileName: demo.fileName,
       fileType,
       content,
     })
   }
-
-  return examples.sort((a, b) => {
-    const ai = DEMO_FILE_ORDER.indexOf(a.fileName as (typeof DEMO_FILE_ORDER)[number])
-    const bi = DEMO_FILE_ORDER.indexOf(b.fileName as (typeof DEMO_FILE_ORDER)[number])
-    const orderA = ai === -1 ? 999 : ai
-    const orderB = bi === -1 ? 999 : bi
-    return orderA - orderB
-  })
+  return examples
 }
 
 export const DEMO_EXAMPLES = buildExamples()

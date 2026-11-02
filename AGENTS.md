@@ -17,14 +17,17 @@ src/
                         file-type ignore count sfc text ast-nodes
 frontend/src/
   components/           CodeExtractor（示例←test/demo） CodeScanner
-  demo/examples.ts      import.meta.glob('../../../test/demo/*')
+  demo/examples.ts      import.meta.glob('../../../test/demo/*') + test/demo-manifest.ts
+  i18n/                 index.ts（语言探测 / t / 订阅） locales/{en,zh-CN}.json
+  types/                file-system-access.ts（lib.dom 未收录的 FS Access 类型）
 test/
   demo/                 集成示例，改此处即同步前端 Example
+  demo-manifest.ts      示例清单 + 断言（前端下拉框与 test/test.ts 共用）
   fixtures/text.ts      单测脱敏文案
   console.test.ts       忽略规则
   existing-i18n.test.ts
   cli.test.ts           CLI dry-run / --write / 忽略 / JSON 输出
-  test.ts               输出 test/output/
+  test.ts               跑 CLI 校验示例断言并输出 test/output/
 ```
 
 ## 提取链路
@@ -40,6 +43,8 @@ bun run type-check    # 改 src 后必过
 bun run lint:fix      # 必过
 bun run test
 bun run build         # lint + type-check + tsup → dist
+bun run i18n:frontend # 用工具扫描自身前端，写回 t() 并更新 en.json
+bun run i18n:check    # 校验前端 t() key 与 en.json：0 missing / 0 orphan
 ```
 
 前端：`cd frontend && bun run dev|build`。Windows 勿 `cmd1 && cmd2`，用 `;`。
@@ -53,7 +58,10 @@ bun run build         # lint + type-check + tsup → dist
 - **写盘保真**：`extractVue` 用 block 原始内容做局部替换（`src.slice(block.start, block.end)`），不要改回拼接 block 的方案；`parseComponent` 的 `block.content` 对 template/style 做过去缩进，偏移与原文不一致
 - **数字变体**：`VueLangExtractor.primeVariants` 把仅末尾数字不同的值合并成 `{0}` 模板；CLI 先扫一遍收值再预置重扫，库 API 不自动预置
 - **品牌无关**：工具默认规则不得内置任何公司/产品的品牌名、产品名、技术规格或业务配置；需要过滤时走 `--ignore-value`（项目侧正则）或下游后处理
+- **TS 包裹节点**：`as const` / `satisfies` / 非空断言 / 类型断言只包裹表达式，遍历必须深入 `expression`（见 `TS_WRAPPER_TYPES`），否则常量表里的文案会整棵漏抽
+- **前端 i18n**：界面文案统一 `t('app.…')`，只改 `frontend/src/i18n/locales/*.json`；品牌名（`AST I18n Extractor`、`GitHub`）、语言名、demo 代码内容不翻译；`i18n/` 目录自身不参与扫描
 - 示例/测试文案用 `test/fixtures/text.ts` 脱敏；不提交 `test/output/`、密钥
+- **示例即夹具**：`test/demo/` 的文件同时是前端下拉框示例与 CLI 测试输入；增删示例要同步 `test/demo-manifest.ts`（`replaced` / `kept` / `existingKeys` / `expectedMessages`），`test/test.ts` 会逐条断言，别只改文件不加断言
 - 发版：根目录 `bun run build` 后发布 `dist`
 
 ## 禁止事项（硬约束）

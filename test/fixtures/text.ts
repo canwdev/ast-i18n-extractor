@@ -13,4 +13,6 @@ export const TEXT = {
   msgElse: '分支B提示文案',
   msgOuterElse: '分支C提示文案',
   tplI18n: '绑定至 {0} 并完成检查',
+  asConstLabel: '常量断言文案',
+  asExpressionText: '类型断言文案',
 } as const

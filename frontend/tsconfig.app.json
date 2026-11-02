@@ -15,6 +15,7 @@
     "paths": {
       "ast-i18n-extractor": ["../src/index.ts"]
     },
+    "resolveJsonModule": true,
     "types": ["vite/client"],
     "allowImportingTsExtensions": true,
 

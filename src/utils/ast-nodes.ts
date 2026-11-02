@@ -2,6 +2,17 @@ import type { BlockStatement, IfStatement, Statement } from 'estree'
 
 interface Node { type: string, [key: string]: unknown }
 
+/**
+ * TypeScript 类型包裹节点：只包裹表达式、不改变求值对象。
+ * 遍历时必须继续深入其 `expression`，否则 `[{ label: '…' }] as const` 会整棵漏抽。
+ */
+export const TS_WRAPPER_TYPES: ReadonlySet<string> = new Set([
+  'TSAsExpression',
+  'TSSatisfiesExpression',
+  'TSNonNullExpression',
+  'TSTypeAssertion',
+])
+
 function flattenStatement(stmt: Statement): Node[] {
   if (stmt.type === 'BlockStatement') {
     return (stmt as BlockStatement).body as Node[]

@@ -35,6 +35,8 @@ await extractJs(src, 'app', 'ts', '$t', undefined, {
 
 `frontend/` — React + Monaco，单文件提取与目录扫描。本地：`cd frontend && bun install && bun run dev`。
 
+界面支持中英切换：首次打开按浏览器语言（`zh*` → 中文，其余 → 英文）自动命中，右上角选择器可手动切换并记住选择。文案由工具自身扫描生成（`bun run i18n:frontend`），语言包在 `frontend/src/i18n/locales/`。
+
 在线演示：推送到 `master` 后由 GitHub Actions 部署 Pages（Settings → Pages → GitHub Actions）。地址：`https://<username>.github.io/ast-i18n-extractor/`
 
 ## 开发
@@ -44,6 +46,8 @@ bun install
 bun run test
 bun run build
 ```
+
+`test/demo/` 下的示例既是前端「示例」下拉框的内容，也是 CLI 测试夹具；断言写在 `test/demo-manifest.ts`，改示例时同步。
 
 贡献者与 Agent 见 [AGENTS.md](./AGENTS.md)。
 

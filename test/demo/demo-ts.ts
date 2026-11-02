@@ -1,152 +1,57 @@
-interface Item {
-  id: number
+// TS 示例：组合式写法，覆盖类型标注、枚举、as const、数字变体合并、模板字符串、已有 $t 复用
+interface FeatureRow {
   label: string
-  label2: string
-  moreLink?: string
+  value: string
 }
 
-interface TestListItem {
-  type?: string
-  url?: string
+// 枚举值是代码标识（free / team / enterprise），不是界面文案
+enum Plan {
+  Free = 'free',
+  Team = 'team',
+  Enterprise = 'enterprise',
 }
 
-interface NdListItem {
-  label: string
-  class: string
-}
+// 末尾数字不同的文案合并为 `{0}` 占位符，调用点自动带参数
+const PLAN_LABELS = ['Free plan', 'Team plan', 'Enterprise plan'] as const
 
-interface VideoData {
-  src: string
-  poster: string
-  demo_text?: string
-}
-
-interface BoxImage {
-  ratio: number
-  style: string
-  videoData: VideoData
-  label: string
-  labelClass?: string
-}
-
-enum Status {
-  Active = "Active Status",
-  Inactive = "Inactive Status"
-}
-
-const isCN = ref(false)
-const off = ref(10)
-const item = ref<Item>({
-  id: 1,
-  label: 'FormatA',
-  label2: 'Welcome to the sample venue',
-})
-const testList = ref<TestListItem[]>(
-  ['PlatformA', 'PlatformB', 'PlatformC', 'PlatformD', 'PlatformE'].map(name => ({
-    name,
-  })),
-)
-
-const title = computed(
-  () => `It's close to midnight, and something evil's lurking in the dark`,
-)
-
-const ndList = computed<NdListItem[]>(() => [
-  { label: 'Tiny Dancer in my hand, pirouetting for the man.', class: 'main' },
-  { label: 'Same Text', class: 'sub' },
-  { label: 'Same Text', class: 'sub' },
-  { label: 'Same Text', class: 'sub' },
-  { label: 'Same Text', class: 'sub' },
-  { label: '', class: 'sub' },
+const rows = ref<FeatureRow[]>([
+  { label: 'Compression Option', value: 'Full' },
+  { label: 'Video Quality', value: 'Highest' },
 ])
 
-const demoFeats = computed<string[][]>(() => [
-  [
-    'Compression Option',
-    'Video Quality',
-    'SampleMetric',
-    'Ideal Use Cases',
-    'Network Requirement',
-  ],
-  [
-    'Full FormatA',
-    'Highest',
-    'High (Lossless)',
-    'High-end studios, live broadcasts',
-    'High-speed network',
-  ],
-  [
-    'FormatA Basic',
-    'Good',
-    'Lowest',
-    'Balanced',
-    'Use case description one',
-  ],
-  [
-    'FormatA Standard',
-    'Good',
-    'Low',
-    'Feature note one',
-    'Use case description two',
-  ],
-  [
-    'FormatA Advanced',
-    'Great',
-    'Medium',
-    'Feature note two',
-    'Feature note three',
-  ],
-])
+const selectedPlan = ref<Plan>(Plan.Team)
 
-const boxImages = computed<BoxImage[]>(() => [
-  {
-    ratio: 0.56,
-    style: 'flex:1;',
-    videoData: {
-      src: 'https://picsum.photos/300/400',
-      poster: 'https://picsum.photos/300/400',
-    },
-    label: 'Ice, ice, baby.',
-    labelClass: 'active',
-  },
-  {
-    ratio: 0.56,
-    style: 'flex:1;',
-    videoData: {
-      src: 'https://picsum.photos/300/400',
-      poster: 'https://picsum.photos/300/400',
-    },
-    label: 'Vanilla Ice, Ice Ice Baby',
-  },
-])
+// 模板字符串里的插值会转成 {0} / {1}
+const summary = computed(() => `We compared ${rows.value.length} features`)
 
-const videoData1 = ref<VideoData>({
-  src: 'https://picsum.photos/400/200',
-  poster: 'https://picsum.photos/300/400',
-})
+const remainingSeats = computed(() => `Only ${seatCount.value} seats left`)
 
-const videoData2 = ref<VideoData>({
-  demo_text:
-    'Yesterday, all my troubles seemed so far away. Now it looks as though they\'re here to stay.',
-  src: 'https://picsum.photos/300/200',
-  poster: 'https://picsum.photos/200/300',
-})
+const emptyHint = computed(() => 'Pick a plan to see the details')
 
-function onLangChange(lang: string = 'Demo text') {
-  alert(`Hello world!${lang}`)
-  const text = 'Plenty of room at the sample venue'
-  const text2 = `You can find ${lang} here !!!`
-  console.log(text)
+// 纯技术用语（型号 / 分辨率 / 价格）没有自然语言单词，默认写死不抽取
+const deviceTag = 'ABC-123'
+const pixelSize = '1234x567'
+const unitPrice = '$9.99'
+
+function describePlan(plan: Plan): string {
+  return plan === Plan.Enterprise
+    ? 'Built for large teams'
+    : 'Great for small teams'
 }
 
-function checkValidate(): boolean {
-  for (const item of testList.value) {
-    if (!item.type) {
-      return false
-    }
-    if (!item.url) {
-      return false
-    }
+function loadRows(source: string[], endpoint: string) {
+  // String.replace 的替换串不抽取
+  const path = endpoint.replace('/v1', '/v2')
+  // console 参数属于调试信息，不抽取
+  console.log('debug only, console arguments are skipped')
+  return rows.value.concat(source.map(label => ({ label, value: path })))
+}
+
+function validate() {
+  if (!rows.value.length) {
+    // new Error 的参数不抽取
+    throw new Error('Nothing to compare')
   }
-  return true
+  // 已有 $t 调用不重复生成 key
+  return $t('compare.validation_passed')
 }

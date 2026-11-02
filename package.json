@@ -1,7 +1,7 @@
 {
   "name": "ast-i18n-extractor",
   "type": "module",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "license": "MIT",
   "exports": {
     ".": {
@@ -22,6 +22,8 @@
   "scripts": {
     "build": "bun run lint:fix && bun run type-check && bun run tsup",
     "cli": "bun ./src/cli.ts",
+    "i18n:frontend": "bun src/cli.ts frontend/src --prefix app --t-prefix t --ignore \"demo/examples\\.ts\" --ignore \"i18n/\" --ignore-value \"^AST I18n Extractor\" --ignore-value \"^React$\" --ignore-value \"^Github$\" --ignore-value \"^⚠️$\" --ignore-value \"^Vue, JS, TS, JSX, TSX$\" --ignore-value \"^(JavaScript|TypeScript|React|React TS|Vue SFC) \\(\\.[a-z]+\\)$\" --write --lang frontend/src/i18n/locales/en.json",
+    "i18n:check": "bun src/cli.ts frontend/src --prefix app --ignore \"demo/examples\\.ts\" --ignore \"i18n/\" --ignore-value \"^AST I18n Extractor\" --ignore-value \"^React$\" --ignore-value \"^Github$\" --ignore-value \"^⚠️$\" --ignore-value \"^Vue, JS, TS, JSX, TSX$\" --ignore-value \"^(JavaScript|TypeScript|React|React TS|Vue SFC) \\(\\.[a-z]+\\)$\" --check frontend/src/i18n/locales/en.json",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "type-check": "tsc --noEmit",
