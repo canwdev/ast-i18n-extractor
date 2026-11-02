@@ -1,17 +1,20 @@
 # Agent / 贡献者
 
-用户向说明见 [README.md](./README.md)。本文：仓库结构、提取逻辑、维护约定。
+用户向说明见 [README.md](./README.md)。CLI 参数见 [.agents/skills/ast-i18n-extractor/SKILL.md](./.agents/skills/ast-i18n-extractor/SKILL.md)（唯一真相）。本文：仓库结构、提取逻辑、维护约定。
 
 ## 目录
 
 ```
 src/
-  index.ts              extractJs | extractVue | extractJsx | findExistingI18nKeys
+  index.ts              extractJs | extractVue | extractJsx | extractTsx | findExistingI18nKeys
+  cli.ts                CLI 入口
+  cli/                  args.ts（参数/帮助） discover.ts（文件扫描/忽略） run.ts（编排/写盘）
   checker.ts            valueNeedExtract、属性名过滤
   replacer.ts           按 offset 替换
   find-existing-i18n.ts
   extractors/           js.ts jsx.ts vue-template.ts extractor.ts
-  utils/                code-detect console-call template-literal-i18n format-key text
+  utils/                code-detect console-call template-literal-i18n format-key
+                        file-type ignore count sfc text ast-nodes
 frontend/src/
   components/           CodeExtractor（示例←test/demo） CodeScanner
   demo/examples.ts      import.meta.glob('../../../test/demo/*')
@@ -20,6 +23,7 @@ test/
   fixtures/text.ts      单测脱敏文案
   console.test.ts       忽略规则
   existing-i18n.test.ts
+  cli.test.ts           CLI dry-run / --write / 忽略 / JSON 输出
   test.ts               输出 test/output/
 ```
 
@@ -43,10 +47,24 @@ bun run build         # lint + type-check + tsup → dist
 ## 约定
 
 - 禁止 `any`；前端通过 vite alias 引用 `../src/index.ts`，勿重复实现提取
+- 文件类型、忽略规则、文案计数只有一份实现（`src/utils/`），CLI 与前端共用
+- CLI 参数只在 skill 维护，改参数同步 `src/cli/args.ts` 与 `test/cli.test.ts`
+- SFC 解析统一走 `src/utils/sfc.ts`，不要直接引用 `vue-template-compiler` 入口
+- **写盘保真**：`extractVue` 用 block 原始内容做局部替换（`src.slice(block.start, block.end)`），不要改回拼接 block 的方案；`parseComponent` 的 `block.content` 对 template/style 做过去缩进，偏移与原文不一致
+- **数字变体**：`VueLangExtractor.primeVariants` 把仅末尾数字不同的值合并成 `{0}` 模板；CLI 先扫一遍收值再预置重扫，库 API 不自动预置
+- **品牌无关**：工具默认规则不得内置任何公司/产品的品牌名、产品名、技术规格或业务配置；需要过滤时走 `--ignore-value`（项目侧正则）或下游后处理
 - 示例/测试文案用 `test/fixtures/text.ts` 脱敏；不提交 `test/output/`、密钥
 - 发版：根目录 `bun run build` 后发布 `dist`
+
+## 禁止事项（硬约束）
+
+- 禁止在源码、注释、测试、demo、文档、示例、commit 文案中出现**真实公司/产品品牌名、产品名、型号、营销技术规格或业务配置**（例如品牌、型号、分辨率/帧率口号、专有协议名、产品线名称）。
+- 需要演示「技术用语过滤」「品牌名过滤」时，一律使用中性占位：`Vendor One`、`Product 2`、`ABC-123`、`1234x567`、`1.5 kg`、`$9.99`。
+- 项目专属的品牌/术语词库属于消费方仓库（例如其 skill 目录下的 glossary），通过 `--ignore-value` 传入；**不得复制进本仓库**。
+- 「技术术语」指业务/营销/硬件规格术语；编程语言、框架、文件格式、GLSL 关键字等开发术语不受此限。
+- 新增/修改示例与测试前先按上述关键词自检；评审发现即视为阻塞。
 
 ## Agent
 
 1. 改代码 → `type-check` + `lint:fix` + 相关测试
-2. 任务前读 README（API）+ 本文（结构/约定）
+2. 任务前读 README（API）+ 本文（结构/约定）+ skill（CLI 参数）

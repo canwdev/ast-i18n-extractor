@@ -15,7 +15,7 @@
       :phone="`iPhone`"
       :mac="`iMac`"
       :oses="['macOS', 'Windows', `Linux`, 'Android OS']"
-      :data-ndi="`FormatA`"
+      :data-format="`FormatA`"
       target="_blank"
       class="compare-more"
     >
@@ -109,7 +109,7 @@
       :desc="`And in the words of Maya Angelou, ‘People will forget what you said, people will forget what you did, but people will never forget how you made them feel.’ So, the real work of your life is to figure out what that is that you're supposed to be doing. And the way you do that is by asking yourself the right questions. And I’ve told you a couple of them.`"
     >
       <template #box>
-        <div class="ndi-feats">
+        <div class="format-feats">
           <div class="row-header">
             <div v-for="(col, index) in demoFeats[0]" :key="index" class="col-item">{{ col }}</div>
           </div>
@@ -190,9 +190,9 @@ export default {
           'High-end studios, live broadcasts',
           'High-speed network',
         ],
-        ['FormatA HX', 'Good', 'Lowest', 'Balanced', 'Use case description one'],
-        ['FormatA HX2', 'Good', 'Low', 'Feature note one', 'Use case description two'],
-        ['FormatA HX3', 'Great', 'Medium', 'Feature note two', 'Feature note three'],
+        ['FormatA Basic', 'Good', 'Lowest', 'Balanced', 'Use case description one'],
+        ['FormatA Standard', 'Good', 'Low', 'Feature note one', 'Use case description two'],
+        ['FormatA Advanced', 'Great', 'Medium', 'Feature note two', 'Feature note three'],
       ]
     },
   },

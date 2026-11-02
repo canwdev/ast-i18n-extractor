@@ -1,7 +1,7 @@
 import type { DiffOnMount, Monaco } from '@monaco-editor/react'
-import type { FileType } from '../utils/fileTypeUtils'
+import type { FileType } from 'ast-i18n-extractor'
 import Editor, { DiffEditor } from '@monaco-editor/react'
-import { extractJs, extractJsx, extractVue, findExistingI18nKeys } from 'ast-i18n-extractor'
+import { countExtractedMessages, extractJs, extractJsx, extractVue, findExistingI18nKeys } from 'ast-i18n-extractor'
 import clsx from 'clsx'
 import { AlertTriangle, Code, FileJson, List } from 'lucide-react'
 import { useState } from 'react'
@@ -13,20 +13,6 @@ import {
   getDemosByFileType,
 } from '../demo/examples'
 import { EDITOR_LANGUAGES } from '../utils/fileTypeUtils'
-
-export type { FileType } from '../utils/fileTypeUtils'
-
-function countExtractedLeaves(obj: unknown): number {
-  if (!obj || typeof obj !== 'object')
-    return 0
-  return Object.values(obj as Record<string, unknown>).reduce<number>((sum, v) => {
-    if (typeof v === 'string')
-      return sum + 1
-    if (v && typeof v === 'object')
-      return sum + countExtractedLeaves(v)
-    return sum
-  }, 0)
-}
 
 export interface CodeExtractorProps {
   keyPrefix: string
@@ -62,7 +48,7 @@ export function CodeExtractor({
 
   const extractedCount = (() => {
     try {
-      return countExtractedLeaves(JSON.parse(extractedMap) as unknown)
+      return countExtractedMessages(JSON.parse(extractedMap) as unknown)
     }
     catch {
       return 0

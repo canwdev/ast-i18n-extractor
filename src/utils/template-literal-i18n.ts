@@ -1,5 +1,6 @@
 import type { Expression, Pattern, Super, TemplateElement, TemplateLiteral } from 'estree'
 import type { ReplacementItem } from '../replacer'
+import type { GenerateEntry } from '../types'
 
 export type ReplaceValueFn = (key: string, expressionSources?: string[]) => string
 
@@ -30,7 +31,7 @@ export function getExpressionSources(
 export interface ProcessTemplateLiteralOptions {
   formatValue: (value: string) => string
   valueNeedExtract: (value: string) => boolean
-  generateUniqueKey: (text: string) => string
+  generateEntry: GenerateEntry
   replaceValueFn: ReplaceValueFn
   textMap: Record<string, string>
   replacements: ReplacementItem[]
@@ -60,9 +61,9 @@ export function processTemplateLiteralWithExpressions(
     return false
   }
 
-  const key = options.generateUniqueKey(text)
-  options.textMap[key] = text
-  const replaceValue = options.replaceValueFn(key, expressionSources)
+  const entry = options.generateEntry(text)
+  options.textMap[entry.key] = text
+  const replaceValue = options.replaceValueFn(entry.key, expressionSources)
   options.replacements.push([templateLiteral.start, templateLiteral.end, replaceValue])
   return true
 }

@@ -1,11 +1,13 @@
-import type { SFCBlock, SFCDescriptor } from 'vue-template-compiler'
+import type { ReplacementItem } from './replacer'
 import type { ExtractOptions, WarningItem } from './types'
-import { set as _set } from 'lodash-es'
-import { parseComponent } from 'vue-template-compiler'
+import type { SFCBlock, SFCDescriptor } from './utils/sfc'
 
+import { set as _set } from 'lodash-es'
 import { valueNeedExtract } from './checker'
 import { VueLangExtractor } from './extractors/extractor'
+import { replaceTemplate } from './replacer'
 import { formatI18nKey } from './utils/format-key'
+import { parseComponent } from './utils/sfc'
 
 function formatValue(value: string) {
   // 处理HTML字符串中的  \n  为空格
@@ -43,104 +45,72 @@ export async function extractVue(
   options?: ExtractOptions,
 ) {
   const parsed = parseComponent(src) as SFCDescriptor & { scriptSetup?: SFCBlock }
-  console.log('[extractVue] parse vue OK')
-  const newVueTmplArr: string[] = []
   const textMap: { [key: string]: string } = {}
-
-  vueLangEx = vueLangEx || new VueLangExtractor(keyPrefix)
+  const edits: ReplacementItem[] = []
   const warnings: WarningItem[] = []
 
-  // Script 处理函数
+  vueLangEx = vueLangEx || new VueLangExtractor(keyPrefix)
+
+  const blockRange = (block: SFCBlock): [number, number] => {
+    const start = block.start ?? 0
+    const end = typeof block.end === 'number' && block.end >= start ? block.end : src.length
+    return [start, end]
+  }
+
+  const sliceBlock = (block: SFCBlock) => {
+    const [start, end] = blockRange(block)
+    return src.slice(start, end)
+  }
+
+  const collectText = (result: {
+    textMap: { [key: string]: string }
+    warnings: WarningItem[]
+  }) => {
+    Object.keys(result.textMap).forEach((key) => {
+      _set(textMap, key, formatValue(result.textMap[key] ?? ''))
+    })
+    if (result.warnings.length > 0) {
+      warnings.push(...result.warnings)
+    }
+  }
+
+  // 只替换块内内容：块标签、属性、block 顺序、空行、行尾与文件末尾换行全部保持原样。
+  // 注意不能用 parseComponent 的 block.content（template/style 被 deindent 过，偏移与原文不一一对应）。
   const processScript = (scriptBlock: SFCBlock, isSetupBlock: boolean) => {
-    const content = scriptBlock.content
     const lang = scriptBlock.lang
     const isTs = lang === 'ts' || lang === 'tsx'
     // 如果是 setup 块，或者用户指定 TS 都是 setup
     const isSetup = isSetupBlock || isTs
     const prefix = tPrefix || (isSetup ? '$t' : 'this.$t')
 
-    const result = vueLangEx.extractScript(content, prefix, options?.logObjects)
-
-    Object.keys(result.textMap).forEach((key) => {
-      _set(textMap, key, formatValue(result.textMap[key] ?? ''))
-    })
-
-    if (result.warnings.length > 0) {
-      warnings.push(...result.warnings)
-    }
-
-    const langAttr = lang ? ` lang="${lang}"` : ''
-    const setupAttr = isSetupBlock ? ' setup' : ''
-
-    return `<script${setupAttr}${langAttr}>${result.newTemplate}</script>`
+    const result = vueLangEx!.extractScript(sliceBlock(scriptBlock), prefix, options?.logObjects)
+    collectText(result)
+    const [start, end] = blockRange(scriptBlock)
+    edits.push([start, end, result.newTemplate])
   }
 
-  // 1. 处理 Script (普通)
+  // 1. 处理 Script (普通) / Script Setup
   if (parsed.script) {
-    newVueTmplArr.push(processScript(parsed.script, false))
+    processScript(parsed.script, false)
   }
-
-  // 2. 处理 Script Setup
   if (parsed.scriptSetup) {
-    newVueTmplArr.push(processScript(parsed.scriptSetup, true))
+    processScript(parsed.scriptSetup, true)
   }
 
-  // 3. 处理 Template (注意顺序，通常 template 在 script 之后或之前，这里统一放到 script 后面或者按原顺序？)
-  // 简单的做法是按某种固定顺序，或者看 SFCBlock 的 start/end 排序。
-  // 为了简单，我们遵循一般的 Vue SFC 风格：Script -> Template -> Style
-  // 但是原代码是先 Template 后 Script。
-  // 我们可以先收集所有 block，然后按 start 位置排序。
-
-  const blocks: { start: number, content: string }[] = []
-
-  if (parsed.script) {
-    blocks.push({
-      start: parsed.script.start!,
-      content: processScript(parsed.script, false),
-    })
-  }
-
-  if (parsed.scriptSetup) {
-    blocks.push({
-      start: parsed.scriptSetup.start!,
-      content: processScript(parsed.scriptSetup, true),
-    })
-  }
-
+  // 2. 处理 Template
   if (parsed.template) {
-    const result = vueLangEx.extractTemplate(parsed.template.content, tPrefix, options?.logObjects)
-    Object.keys(result.textMap).forEach((key) => {
-      _set(textMap, key, formatValue(result.textMap[key] ?? ''))
-    })
-    if (result.warnings.length > 0) {
-      warnings.push(...result.warnings)
-    }
-    blocks.push({
-      start: parsed.template.start!,
-      content: `<template>${result.newTemplate}</template>`,
-    })
+    const result = vueLangEx.extractTemplate(sliceBlock(parsed.template), tPrefix, options?.logObjects)
+    collectText(result)
+    const [start, end] = blockRange(parsed.template)
+    edits.push([start, end, result.newTemplate])
   }
 
-  if (parsed.styles) {
-    parsed.styles.forEach((style: SFCBlock) => {
-      const lang = style.lang ? ` lang="${style.lang}"` : ``
-      const scoped = style.scoped ? ` scoped` : ``
-      blocks.push({
-        start: style.start!,
-        content: `<style${lang}${scoped}>${style.content}</style>`,
-      })
-    })
-  }
-
-  // 按原文件出现顺序排序
-  blocks.sort((a, b) => a.start - b.start)
-
-  const output = blocks.map(b => b.content).join('\n\n')
-  const extracted = textMap
+  // 3. style / custom block 不改动
+  const output = replaceTemplate(src, edits)
 
   return {
     output,
-    extracted,
+    extracted: textMap,
     warnings,
   }
 }
@@ -166,8 +136,16 @@ export async function extractJsx(
   }
 }
 
+/** TSX 与 JSX 使用同一套提取逻辑 */
+export const extractTsx = extractJsx
+
 // export common functions
 export { findExistingI18nKeys } from './find-existing-i18n'
 export type { ExtractOptions, WarningItem } from './types'
 export { formatI18nKey, valueNeedExtract, VueLangExtractor }
 export { DEFAULT_LOG_OBJECTS, isConsoleCall } from './utils/console-call'
+export { countExtractedMessages } from './utils/count'
+export type { FileType } from './utils/file-type'
+export { getFileType } from './utils/file-type'
+export type { ParsedIgnorePatterns } from './utils/ignore'
+export { parseIgnorePatterns, shouldIgnoreFile } from './utils/ignore'

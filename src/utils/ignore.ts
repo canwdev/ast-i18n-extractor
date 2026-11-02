@@ -21,7 +21,7 @@ export function parseIgnorePatterns(input: string): ParsedIgnorePatterns {
   return { patterns, invalid }
 }
 
-export function shouldIgnoreFile(filePath: string, patterns: RegExp[]): boolean {
+export function shouldIgnoreFile(filePath: string, patterns: readonly RegExp[]): boolean {
   if (patterns.length === 0)
     return false
 

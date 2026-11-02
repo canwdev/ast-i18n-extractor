@@ -1,12 +1,11 @@
 import Editor, { DiffEditor } from '@monaco-editor/react'
-import { extractJs, extractJsx, extractVue, findExistingI18nKeys, VueLangExtractor } from 'ast-i18n-extractor'
+import { extractJs, extractJsx, extractVue, findExistingI18nKeys, getFileType, parseIgnorePatterns, shouldIgnoreFile, VueLangExtractor } from 'ast-i18n-extractor'
 import clsx from 'clsx'
 import { merge } from 'lodash-es'
 import { AlertCircle, CheckCircle, ChevronDown, ChevronRight, Files, FileText, FolderOpen, Save, Scan, X, XCircle } from 'lucide-react'
 
 import { useMemo, useState } from 'react'
-import { getFileType, getLanguageFromPath } from '../utils/fileTypeUtils'
-import { parseIgnorePatterns, shouldIgnoreFile } from '../utils/ignorePatterns'
+import { getLanguageFromPath } from '../utils/fileTypeUtils'
 
 interface ScanResult {
   filePath: string

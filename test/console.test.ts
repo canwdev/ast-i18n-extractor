@@ -26,6 +26,7 @@ async function testConsoleIgnoreInJs() {
 async function testBracketPropIgnore() {
   const src = `
     const keys = ['[modelValue]', '[inputValue]', '[marks]']
+    const greek = 'Επίπεδο 1'
     const label = '${TEXT.visibleLabel}'
   `
   const result = await extractJs(src, 'app')
@@ -254,6 +255,37 @@ async function testVueAriaAndSlotAttrsIgnore() {
   assert(extractedJson.includes(TEXT.visibleText), '文本节点应提取')
 }
 
+async function testCodePositionAndTechnicalIgnore() {
+  const src = `
+    const spec = '1234x567'
+    const port = 'XYZ-42'
+    const unit = '1.5 kg'
+    const price = '$9.99'
+    const replaced = 'label'.replace(/^x/, 'Fallback text ')
+    const config = { name: 'DemoPage', id: 'hero' }
+    const shader = 'attribute vec2 aPosition; void main() { gl_Position = vec4(aPosition, 0.0, 1.0); }'
+    const greek = 'Επίπεδο 1'
+    const label = '${TEXT.visibleLabel}'
+    function fail() {
+      return error({ message: 'Page not found' })
+    }
+  `
+  const result = await extractJs(src, 'app')
+  const extractedJson = JSON.stringify(result.extracted)
+
+  assert(!extractedJson.includes('1234x567'), '规格代号不应提取')
+  assert(!extractedJson.includes('XYZ-42'), '型号代号不应提取')
+  assert(!extractedJson.includes('1.5 kg'), '数值+单位不应提取')
+  assert(!extractedJson.includes('$9.99'), '价格代号不应提取')
+  assert(!extractedJson.includes('Fallback text'), 'replace 替换串不应提取')
+  assert(!extractedJson.includes('DemoPage'), '组件 name 不应提取')
+  assert(!extractedJson.includes('hero'), '配置 id 不应提取')
+  assert(!extractedJson.includes('gl_Position'), 'GLSL 源码不应提取')
+  assert(!extractedJson.includes('Page not found'), 'error() 参数不应提取')
+  assert(extractedJson.includes('Επίπεδο'), '非拉丁语言文案应提取')
+  assert(extractedJson.includes(TEXT.visibleLabel), '普通文案应提取')
+}
+
 async function testConsoleIgnoreInJsx() {
   const src = `
     export function Demo() {
@@ -284,6 +316,7 @@ async function main() {
   await testTechnicalStringIgnore()
   await testVueCodePreSubtreeIgnore()
   await testVueAriaAndSlotAttrsIgnore()
+  await testCodePositionAndTechnicalIgnore()
   await testConsoleIgnoreInJsx()
   console.log('extractor ignore rules tests passed')
 }

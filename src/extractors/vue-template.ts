@@ -1,6 +1,6 @@
 import type { RootNode, SimpleExpressionNode, TemplateChildNode } from '@vue/compiler-core'
 import type { ReplacementItem } from '../replacer'
-import type { WarningItem } from '../types'
+import type { GenerateEntry, WarningItem } from '../types'
 import { NodeTypes } from '@vue/compiler-core'
 import { parse } from '@vue/compiler-dom'
 import { checkKeyNeedExtract, valueNeedExtract } from '../checker'
@@ -10,13 +10,14 @@ import { formatValue, removeBrackets } from '../utils/text'
 
 export function extractTemplateLogic(
   template: string,
-  generateUniqueKey: (text: string) => string,
+  generateEntry: GenerateEntry,
   extractJs: (code: string, replaceValueFn: (key: string, expressionSources?: string[]) => string, tPrefix?: string) => {
     textMap: { [key: string]: string }
     newTemplate: string
     warnings: WarningItem[]
   },
   tPrefix?: string,
+  ignoreValue?: (value: string) => boolean,
 ) {
   const ast = parse(template)
   // console.log('template ast', ast)
@@ -24,8 +25,17 @@ export function extractTemplateLogic(
   let textMap: { [key: string]: string } = {}
   let warnings: WarningItem[] = []
   const prefix = tPrefix || '$t'
+  const buildCall = (key: string, params?: string[]) => {
+    if (params?.length) {
+      return `${prefix}('${key}', [${params.join(', ')}])`
+    }
+    return `${prefix}('${key}')`
+  }
 
   const _valueNeedExtractWith = (value: string) => {
+    if (ignoreValue?.(value.trim())) {
+      return false
+    }
     return valueNeedExtract(value, (warn: WarningItem) => {
       warnings.push(warn)
     })
@@ -60,9 +70,9 @@ export function extractTemplateLogic(
     if (!_valueNeedExtractWith(text)) {
       return
     }
-    const key = generateUniqueKey(text)
-    textMap[key] = text
-    replacements.push([loc.start.offset, loc.end.offset, `${prefix}('${key}')`])
+    const entry = generateEntry(text)
+    textMap[entry.key] = entry.text ?? text
+    replacements.push([loc.start.offset, loc.end.offset, buildCall(entry.key, entry.params)])
   }
 
   // 遍历 AST
@@ -94,12 +104,12 @@ export function extractTemplateLogic(
             if (!_valueNeedExtractWith(text)) {
               return
             }
-            const key = generateUniqueKey(text)
-            textMap[key] = text
+            const entry = generateEntry(text)
+            textMap[entry.key] = entry.text ?? text
             replacements.push([
               prop.value.loc.start.offset,
               prop.value.loc.end.offset,
-              `"${prefix}('${key}')"`,
+              `"${buildCall(entry.key, entry.params)}"`,
             ])
             // label -> :label
             replacements.push([
@@ -180,9 +190,13 @@ export function extractTemplateLogic(
       if (!_valueNeedExtractWith(text)) {
         return
       }
-      const key = generateUniqueKey(text)
-      textMap[key] = text.trim()
-      replacements.push([node.loc.start.offset, node.loc.end.offset, `{{ ${prefix}('${key}') }}`])
+      const entry = generateEntry(text)
+      textMap[entry.key] = (entry.text ?? text).trim()
+      replacements.push([
+        node.loc.start.offset,
+        node.loc.end.offset,
+        `{{ ${buildCall(entry.key, entry.params)} }}`,
+      ])
     }
     if ('children' in node) {
       for (const child of node.children) {

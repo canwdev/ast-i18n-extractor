@@ -55,9 +55,9 @@ export default {
           'High-end studios, live broadcasts',
           'High-speed network',
         ],
-        ['FormatA HX', 'Good', 'Lowest', 'Balanced', 'Use case description one'],
-        ['FormatA HX2', 'Good', 'Low', 'Feature note one', 'Use case description two'],
-        ['FormatA HX3', 'Great', 'Medium', 'Feature note two', 'Feature note three'],
+        ['FormatA Basic', 'Good', 'Lowest', 'Balanced', 'Use case description one'],
+        ['FormatA Standard', 'Good', 'Low', 'Feature note one', 'Use case description two'],
+        ['FormatA Advanced', 'Great', 'Medium', 'Feature note two', 'Feature note three'],
       ]
     },
   },

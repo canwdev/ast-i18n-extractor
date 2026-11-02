@@ -1,5 +1,5 @@
-import type { FileType } from '../utils/fileTypeUtils'
-import { getFileType } from '../utils/fileTypeUtils'
+import type { FileType } from 'ast-i18n-extractor'
+import { getFileType } from 'ast-i18n-extractor'
 
 const demoSources = import.meta.glob('../../../test/demo/*', {
   query: '?raw',

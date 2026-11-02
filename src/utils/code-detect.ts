@@ -1,7 +1,7 @@
 import { parse } from 'acorn'
 
 /** 是否包含典型 JS 运算符/语法（排除纯单词如 Sampletext） */
-const CODE_OPERATOR_PATTERN = /[+\-*/%|&<>!]=?|&&|\|\||[?()[\]]|=>/
+const CODE_OPERATOR_PATTERN = /[+\-*/%|&<>!]=?|[?()[\]]|=>/
 
 const SKIP_SUBTREE_TAGS = new Set(['svg', 'code', 'pre', 'style'])
 
@@ -118,4 +118,65 @@ export function isPathLikeString(value: string): boolean {
 export function shouldProcessBindingAsJs(value: string): boolean {
   const v = value.trim()
   return /^\{|\[/.test(v) || /^['"`]/.test(v) || looksLikeCodeExpression(v)
+}
+
+/** 全大写但确实需要翻译的常见词（ON / OFF / AUTO 等） */
+const NATURAL_ALLCAPS = new Set(['ON', 'OFF', 'AUTO', 'YES', 'NO', 'NEW'])
+
+/** 文案里是否含自然语言单词（不含品牌/技术词表，纯通用判定） */
+export function hasNaturalWord(value: string): boolean {
+  return value
+    .split(/\s+/)
+    .filter(Boolean)
+    .some((raw) => {
+      const token = raw.replace(/^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu, '')
+      if (!token) {
+        return false
+      }
+      if (NATURAL_ALLCAPS.has(token.toUpperCase())) {
+        return true
+      }
+      // 纯字母的句首大写 / 小写单词（Tracking、Support、Ports、Custom）
+      if (/^[A-Za-z][a-z]{2,}$/.test(token)) {
+        return true
+      }
+      // 非拉丁文字（西里尔、阿拉伯等）算自然语言；微符号单位（μs）不算
+      const nonUnit = token.replace(/[\u00B5\u03BC]+/g, '')
+      // eslint-disable-next-line no-control-regex
+      if (/[^\x00-\x7F]/.test(nonUnit) && /\p{L}{2,}/u.test(nonUnit)) {
+        // 纯希腊字母：短符号按单位处理，长词按自然语言
+        if (/^\p{Script=Greek}+$/u.test(nonUnit) && nonUnit.length < 4) {
+          return false
+        }
+        return true
+      }
+      return false
+    })
+}
+
+/**
+ * 纯技术用语：带数字/大写代号，且没有任何自然语言单词。
+ * 例：1234x567、ABC-123、1.5 kg、$9.99。
+ * 不处理品牌名、产品名——那属于各项目的后处理口径。
+ */
+export function isTechnicalTerm(value: string): boolean {
+  const v = value.trim()
+  if (!v) {
+    return false
+  }
+  // 中日韩文案一律不按技术用语跳过
+  if (/[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}\p{Script=Hangul}]/u.test(v)) {
+    return false
+  }
+  if (!/\d/.test(v) && !/[A-Z]{2,}/.test(v)) {
+    return false
+  }
+  return !hasNaturalWord(v)
+}
+
+/** GLSL / shader 源码（工具不应把它当文案） */
+export function isGlslSource(value: string): boolean {
+  return /\bgl_(?:Position|FragColor|FragCoord|PointSize)\b/.test(value)
+    || /\b(?:uniform|attribute|varying)\s+(?:(?:lowp|mediump|highp)\s+)?(?:float|vec[234]|mat[234]|sampler2D)\b/.test(value)
+    || /\bprecision\s+(?:lowp|mediump|highp)\s+float\b/.test(value)
 }

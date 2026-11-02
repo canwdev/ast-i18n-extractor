@@ -3,12 +3,14 @@ import { parse } from 'acorn'
 import {
   isCssLikeValue,
   isDateTimeFormatPattern,
+  isGlslSource,
   isI18nKeyLike,
   isLocaleCode,
   isMimeOrExtension,
   isPathLikeString,
   isRegexLiteralString,
   isSvgPathData,
+  isTechnicalTerm,
   isUuidOrHash,
   isVersionString,
   looksLikeCodeExpression,
@@ -152,6 +154,16 @@ export function valueNeedExtract(value: string, handleWarning?: (warning: Warnin
     return false
   }
 
+  // GLSL / shader 源码
+  if (isGlslSource(value)) {
+    return false
+  }
+
+  // 纯技术用语：1234x567、ABC-123、1.5 kg、$9.99
+  if (isTechnicalTerm(value)) {
+    return false
+  }
+
   // 检测内容是否为非ASCII字符，如中文或其他语言（非代码内容）
   // eslint-disable-next-line no-control-regex
   if (/[^\x00-\x7F]/.test(value)) {
@@ -199,7 +211,6 @@ export function valueNeedExtract(value: string, handleWarning?: (warning: Warnin
   // if (/\$\w+\('[^']*'\)/gi.test(value)) {
   if (/\$t\('[^']*'\)/i.test(value)) {
     const message = '请手动处理 $任意(任意内容)'
-    console.warn(message, { value })
     handleWarning
     && handleWarning({
       message,

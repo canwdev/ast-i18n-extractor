@@ -1,4 +1,5 @@
-export type FileType = 'vue' | 'js' | 'ts' | 'jsx' | 'tsx'
+import type { FileType } from 'ast-i18n-extractor'
+import { getFileType } from 'ast-i18n-extractor'
 
 export const EDITOR_LANGUAGES: Record<FileType, string> = {
   vue: 'html',
@@ -6,17 +7,6 @@ export const EDITOR_LANGUAGES: Record<FileType, string> = {
   ts: 'typescript',
   jsx: 'javascript',
   tsx: 'typescript',
-}
-
-/**
- * 极简版：正则提取后缀并查找映射
- */
-export function getFileType(filePath: string): FileType | null {
-  const ext = filePath.match(/\.([a-z]+)$/i)?.[1].toLowerCase()
-  if (ext == null || ext === '') {
-    return null
-  }
-  return (ext in EDITOR_LANGUAGES) ? ext as FileType : null
 }
 
 /**

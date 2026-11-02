@@ -3,14 +3,20 @@ import type {
   TemplateElement,
 } from 'estree'
 import type { ReplacementItem } from '../replacer'
-import type { WarningItem } from '../types'
+import type { GenerateEntry, WarningItem } from '../types'
 import type { ReplaceValueFn } from '../utils/template-literal-i18n'
 import { tsPlugin } from '@sveltejs/acorn-typescript'
 import * as acorn from 'acorn'
 import jsx from 'acorn-jsx'
-import { valueNeedExtract } from '../checker'
+import { checkKeyNeedExtract, valueNeedExtract } from '../checker'
 import { replaceTemplate } from '../replacer'
-import { getIfStatementChildNodes } from '../utils/ast-nodes'
+import {
+  getIfStatementChildNodes,
+  isErrorConstructor,
+  isLiteralNode,
+  isReplaceCall,
+  isSkippedCallArguments,
+} from '../utils/ast-nodes'
 import { isSkipSubtreeTag } from '../utils/code-detect'
 import { DEFAULT_LOG_OBJECTS, isConsoleCall } from '../utils/console-call'
 import { processTemplateLiteralWithExpressions } from '../utils/template-literal-i18n'
@@ -41,8 +47,9 @@ function getJsxElementName(name: Node | undefined): string | null {
 export function extractJsxLogic(
   jsCode: string,
   replaceValueFn: ReplaceValueFn,
-  generateUniqueKey: (text: string) => string,
+  generateEntry: GenerateEntry,
   logObjects: readonly string[] = DEFAULT_LOG_OBJECTS,
+  ignoreValue?: (value: string) => boolean,
 ) {
   const program: acorn.Program = acorn.Parser.extend(tsPlugin(), jsx()).parse(jsCode, {
     sourceType: 'module',
@@ -56,6 +63,9 @@ export function extractJsxLogic(
   const warnings: Array<WarningItem> = []
 
   const _valueNeedExtractWith = (value: string) => {
+    if (ignoreValue?.(value.trim())) {
+      return false
+    }
     return valueNeedExtract(value, (warn: WarningItem) => {
       warnings.push(warn)
     })
@@ -90,10 +100,22 @@ export function extractJsxLogic(
         return node.argument ? [node.argument as Node] : []
       case 'TemplateLiteral':
         return (node.quasis as Node[]) || []
-      case 'CallExpression':
+      case 'CallExpression': {
         if (isConsoleCall(node, logObjects))
           return []
-        return [node.callee as Node, ...(node.arguments as Node[] || [])]
+        const callee = node.callee as Node
+        if (isReplaceCall(callee)) {
+          const objectNode = (callee as unknown as { object?: Node }).object
+          if (!objectNode) {
+            return []
+          }
+          return isLiteralNode(objectNode) ? [] : [objectNode]
+        }
+        if (isSkippedCallArguments(callee)) {
+          return [callee]
+        }
+        return [callee, ...(node.arguments as Node[] || [])]
+      }
       case 'ConditionalExpression':
         return [node.test as Node, node.consequent as Node, node.alternate as Node]
       case 'MemberExpression':
@@ -102,8 +124,18 @@ export function extractJsxLogic(
         return (node.properties as Node[]) || []
       case 'ArrayExpression':
         return (node.elements as Node[]) || []
-      case 'Property':
+      case 'Property': {
+        const keyNode = node.key as Node
+        const keyName = keyNode.type === 'Identifier'
+          ? keyNode.name as string
+          : isLiteralNode(keyNode) && typeof (keyNode as unknown as { value?: unknown }).value === 'string'
+            ? (keyNode as unknown as { value: string }).value
+            : ''
+        if (keyName && !checkKeyNeedExtract(keyName)) {
+          return []
+        }
         return [node.key as Node, node.value as Node]
+      }
       case 'ExportDefaultDeclaration':
       case 'ExportNamedDeclaration':
         return [node.declaration as Node]
@@ -114,8 +146,13 @@ export function extractJsxLogic(
         return node.body as Node[]
       case 'MethodDefinition':
         return [node.key as Node, node.value as Node]
-      case 'NewExpression':
-        return [node.callee as Node, ...(node.arguments as Node[] || [])]
+      case 'NewExpression': {
+        const callee = node.callee as Node
+        if (isErrorConstructor(callee)) {
+          return [callee]
+        }
+        return [callee, ...(node.arguments as Node[] || [])]
+      }
       case 'SwitchStatement':
         return [node.discriminant as Node, ...(node.cases as Node[] || [])]
       case 'SwitchCase':
@@ -186,10 +223,10 @@ export function extractJsxLogic(
       if (!_valueNeedExtractWith(text)) {
         return
       }
-      const key = generateUniqueKey(text)
-      textMap[key] = text
+      const entry = generateEntry(text)
+      textMap[entry.key] = entry.text ?? text
 
-      const replaceValue = replaceValueFn(key)
+      const replaceValue = replaceValueFn(entry.key, entry.params)
       // JSXText needs to be wrapped in {}
       replacements.push([node.start, node.end, `{${replaceValue}}`])
       return
@@ -207,10 +244,10 @@ export function extractJsxLogic(
       if (!_valueNeedExtractWith(text)) {
         return
       }
-      const key = generateUniqueKey(text)
-      textMap[key] = text
+      const entry = generateEntry(text)
+      textMap[entry.key] = entry.text ?? text
 
-      const replaceValue = replaceValueFn(key)
+      const replaceValue = replaceValueFn(entry.key, entry.params)
       // JSXAttribute value needs to be wrapped in {}
       replacements.push([literal.start, literal.end, `{${replaceValue}}`])
       return
@@ -231,10 +268,10 @@ export function extractJsxLogic(
       if (!_valueNeedExtractWith(text)) {
         return
       }
-      const key = generateUniqueKey(text)
-      textMap[key] = text
+      const entry = generateEntry(text)
+      textMap[entry.key] = entry.text ?? text
 
-      const replaceValue = replaceValueFn(key)
+      const replaceValue = replaceValueFn(entry.key, entry.params)
       if (isLiteral) {
         replacements.push([node.start, node.end, replaceValue])
       }
@@ -249,7 +286,7 @@ export function extractJsxLogic(
         const processed = processTemplateLiteralWithExpressions(templateLiteral, jsCode, {
           formatValue,
           valueNeedExtract: _valueNeedExtractWith,
-          generateUniqueKey,
+          generateEntry,
           replaceValueFn,
           textMap,
           replacements,
